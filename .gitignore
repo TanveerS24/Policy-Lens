@@ -49,6 +49,37 @@ Thumbs.db
 .DS_Store
 *.exe
 
+# FastAPI specific
+uploads/
+*.pdf
+vector_store/
+*.faiss
+*.pkl
+
+# Expo/React Native
+.expo-shared/
+.gradle
+Local.properties
+*.iml
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.watchman*
+
+# MongoDB
+.mongo/
+
+# Redis
+dumps.rdb
+
+# Vector Store and ML Models
+model_cache/
+embeddings/
+
 # Test coverage
 coverage/
 .coverage
