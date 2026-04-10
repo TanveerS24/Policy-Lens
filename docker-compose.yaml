@@ -1,0 +1,73 @@
+version: "3.9"
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: policylens_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7.2
+    container_name: policylens_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: policylens_ollama
+    restart: unless-stopped
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  backend:
+    build:
+      context: ./backend
+    container_name: policylens_backend
+    depends_on:
+      - mongodb
+      - redis
+      - ollama
+    environment:
+      - MONGO_URI=${MONGO_URI:-mongodb://mongodb:27017/policy_lens}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - SECRET_KEY=${SECRET_KEY:-replace-with-secure-secret}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+
+  admin-frontend:
+    build:
+      context: ./admin-frontend
+    container_name: policylens_admin
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE_URL=http://backend:8000/api
+
+  mobile:
+    build:
+      context: ./mobile
+    container_name: policylens_mobile
+    depends_on:
+      - backend
+    ports:
+      - "19000:19000"
+      - "19001:19001"
+      - "19002:19002"
+    environment:
+      - EXPO_PUBLIC_API_BASE_URL=http://backend:8000/api
+
+volumes:
+  mongo_data:
+  ollama_data:

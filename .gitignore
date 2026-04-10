@@ -8,6 +8,10 @@ pip.lock
 .env
 .env.local
 .env.*.local
+# Ignore all env variants, but keep the example templates
+.env.*
+!.env.example
+!**/.env.example
 
 # IDE and editor files
 .vscode/
