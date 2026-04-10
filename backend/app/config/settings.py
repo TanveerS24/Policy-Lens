@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import os
 from dotenv import load_dotenv
-from pydantic import BaseSettings, Field, AnyHttpUrl
+from pydantic import Field, AnyHttpUrl
+from pydantic_settings import BaseSettings
 
 
 # Load environment variables in the following order:

@@ -1,4 +1,5 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const navItems = [
   { label: "Dashboard", to: "/" },
@@ -8,6 +9,14 @@ const navItems = [
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-slate-200 bg-white">
@@ -19,7 +28,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <p className="text-sm text-slate-500">Moderation dashboard</p>
             </div>
           </div>
-          <nav className="flex gap-3">
+          <nav className="flex items-center gap-3">
             {navItems.map((item) => (
               <Link
                 key={item.to}
@@ -33,6 +42,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 {item.label}
               </Link>
             ))}
+            <button
+              onClick={handleLogout}
+              className="ml-4 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+            >
+              Logout
+            </button>
           </nav>
         </div>
       </header>
