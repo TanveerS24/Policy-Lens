@@ -11,8 +11,9 @@ export default function Dashboard() {
       try {
         const resp = await getDashboard();
         setData(resp);
-      } catch (err) {
-        setError("Unable to load dashboard");
+      } catch (err: any) {
+        const msg = err.response?.data?.detail || err.message || "Unable to load dashboard";
+        setError(msg);
       } finally {
         setLoading(false);
       }
