@@ -21,7 +21,7 @@ class UserInDB(UserBase):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
-        allow_population_by_field_name = True
+        populate_by_name = True
         json_encoders = {datetime: lambda v: v.isoformat()}
 
 
@@ -32,5 +32,5 @@ class UserPublic(UserBase):
     created_at: datetime
 
     class Config:
-        allow_population_by_field_name = True
+        populate_by_name = True
         json_encoders = {datetime: lambda v: v.isoformat()}

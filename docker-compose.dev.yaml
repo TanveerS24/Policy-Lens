@@ -1,0 +1,29 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: policylens_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7.2
+    container_name: policylens_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: policylens_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+volumes:
+  mongo_data:
+  ollama_data:
