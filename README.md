@@ -1,102 +1,179 @@
-# PolicyLens
+# DentalSchemes India
 
-PolicyLens is a full-stack platform for summarizing healthcare policies, extracting eligibility criteria, checking eligibility, and enabling AI-driven question answering. It includes:
+A mobile-first + web admin platform for aggregating dental health schemes across India.
 
-- **Backend**: FastAPI service with MongoDB, Redis, and Ollama-powered RAG
-- **Admin Dashboard**: React + Tailwind admin UI
-- **Mobile**: Expo / React Native client with full policy browsing + eligibility + uploads
+## Features
 
-## 🧱 Architecture
+- **Scheme Aggregation**: Browse and search dental health schemes (state + national)
+- **Eligibility Checking**: AI-powered eligibility engine with rule-based checking
+- **Document Upload**: Upload policy documents (PDF, images) for AI analysis
+- **AI Summarization**: Get AI-generated summaries of policy coverage, exclusions, waiting periods
+- **Authentication**: Secure JWT-based authentication with OTP verification
+- **Admin Panel**: Full-featured admin dashboard for managing schemes and users
 
-- **FastAPI** backend with async MongoDB (Motor) and Redis
-- **Ollama** powering summarization (Gemma3) and reasoning / Q&A (Llama 3.2)
-- **RAG pipeline**: PDF → text extraction → chunking → embeddings → vector store (FAISS) → LLM
-- **Docker Compose** orchestrates backend, MongoDB, Redis, Ollama, and Admin frontend
+## Architecture
 
-## 🚀 Quick Start (Docker)
+### Backend (FastAPI + Python)
+- REST API with JWT authentication (RS256)
+- PostgreSQL database with SQLAlchemy ORM
+- Redis for caching and session management
+- AI integration (Claude/OpenAI) for document summarization
 
-1. Copy one of the pre-defined env files for the environment you want to run (development/test/production):
+### Mobile App (React Native + Expo)
+- Cross-platform mobile app (iOS/Android)
+- Redux for state management
+- React Native Paper for UI components
+- File upload and camera integration
 
-```bash
-cp backend/.env.development backend/.env
+### Admin Frontend (React + TypeScript)
+- Modern React with TypeScript
+- TanStack Query for data fetching
+- Zustand for state management
+- Tailwind CSS for styling
+- Lucide icons
+
+## Project Structure
+
+```
+.
+├── backend/              # FastAPI backend
+│   ├── app/
+│   │   ├── api/v1/      # API endpoints
+│   │   ├── models/      # Database models
+│   │   ├── services/    # Business logic
+│   │   └── config/      # Configuration
+│   └── requirements.txt
+├── mobile/               # React Native mobile app
+│   ├── src/
+│   │   ├── screens/     # App screens
+│   │   ├── navigation/ # Navigation setup
+│   │   ├── redux/       # State management
+│   │   └── services/    # API services
+│   └── package.json
+├── admin-frontend/       # React admin panel
+│   ├── src/
+│   │   ├── pages/       # Admin pages
+│   │   ├── components/  # Shared components
+│   │   └── stores/      # State stores
+│   └── package.json
+└── docker-compose.yaml
 ```
 
-> You can also use `backend/.env.test` or `backend/.env.production` depending on your workflow.
+## Quick Start
 
-2. (Optional) For the admin dashboard and mobile client, copy their env templates as well:
+### Prerequisites
+- Docker and Docker Compose
+- Node.js 20+ (for local development)
+- Python 3.11+ (for local development)
 
-```bash
-cp admin-frontend/.env.example admin-frontend/.env
-cp mobile/.env.example mobile/.env
-```
-
-> Both apps read their base API URL from env vars (`VITE_API_BASE_URL` and `EXPO_PUBLIC_API_BASE_URL`).
-
-2. Start the stack:
+### Using Docker
 
 ```bash
-docker-compose up --build
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
 ```
 
-3. Access services:
-
-- Backend API: `http://localhost:8000/api`
-- OpenAPI docs: `http://localhost:8000/api/docs`
-- Admin dashboard: `http://localhost:3000`
-- Mobile (Expo): `http://localhost:19000` (use Expo Go or web)
-
-## 🧠 LLM Setup
-
-The backend uses Ollama. Ensure Ollama is running and models are installed:
+### Backend Development
 
 ```bash
-ollama pull gemma3:4b-it-q4_K_M
-ollama pull llama3.2:3b-instruct-q4_K_M
+cd backend
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy environment file
+cp .env.example .env
+
+# Run migrations
+alembic upgrade head
+
+# Start server
+uvicorn app.main:app --reload
 ```
 
-## 🗂️ Backend Structure
+### Mobile Development
 
-- `backend/app/main.py` — FastAPI app entrypoint
-- `backend/app/routers/` — API routers
-- `backend/app/services/` — business logic
-- `backend/app/vector_store/` — FAISS vector search
+```bash
+cd mobile
 
-## ✅ API Endpoints
+# Install dependencies
+npm install
 
-### Auth
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/verify-otp`
-- `POST /api/auth/refresh`
+# Start Expo
+npx expo start
+```
 
-### Policies
-- `GET /api/policies`
-- `GET /api/policies/{id}`
-- `POST /api/policies/check-eligibility`
-- `POST /api/policies/ask`
+### Admin Frontend Development
 
-### Uploads
-- `POST /api/uploads/pdf`
-- `GET /api/uploads/my`
-- `DELETE /api/uploads/{id}`
-- `POST /api/uploads/publish`
+```bash
+cd admin-frontend
+
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
+```
+
+## API Endpoints
+
+### Authentication
+- `POST /api/v1/auth/request-otp` - Request OTP
+- `POST /api/v1/auth/verify-otp` - Verify OTP
+- `POST /api/v1/auth/register` - Register user
+- `POST /api/v1/auth/login` - Login
+- `POST /api/v1/auth/refresh` - Refresh token
+
+### Schemes
+- `GET /api/v1/schemes` - List schemes
+- `GET /api/v1/schemes/:id` - Get scheme details
+- `POST /api/v1/schemes/:id/eligibility` - Check eligibility
+
+### Documents
+- `GET /api/v1/documents` - List documents
+- `POST /api/v1/documents/upload` - Upload document
+- `GET /api/v1/documents/:id/summary` - Get AI summary
 
 ### Admin
-- `GET /api/admin/dashboard`
-- `GET /api/admin/policies`
-- `POST /api/admin/policy`
-- `PUT /api/admin/policy/{id}`
-- `DELETE /api/admin/policy/{id}`
-- `GET /api/admin/pending`
-- `POST /api/admin/approve/{id}`
-- `POST /api/admin/reject/{id}`
+- `POST /api/v1/admin/login` - Admin login
+- `GET /api/v1/admin/dashboard` - Dashboard stats
+- `GET /api/v1/admin/schemes` - Manage schemes
+- `GET /api/v1/admin/users` - Manage users
+- `GET /api/v1/admin/audit-logs` - View audit logs
 
-## 🧩 Notes
+## Environment Variables
 
-- Admin endpoints require JWT auth with an admin user (set `is_admin` in MongoDB user doc).
-- Uploading a PDF triggers extraction and summary generation; publishing creates a policy draft.
-- Eligibility checks & QA rely on RAG with stored embeddings.
+### Backend (.env)
+```
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/dentalschemes
+REDIS_URL=redis://localhost:6379/0
+JWT_SECRET_KEY=your-secret-key
+ANTHROPIC_API_KEY=your-anthropic-key
+SMS_API_KEY=your-sms-api-key
+```
 
----
+### Admin Frontend (.env)
+```
+VITE_API_URL=http://localhost:8000/api/v1
+```
 
-This repo provides the core backend + admin web UI for PolicyLens. Mobile clients can be added under `mobile/` as a separate Expo app.
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details

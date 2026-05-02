@@ -1,17 +1,18 @@
-FROM node:20-slim
+FROM node:20-alpine
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
-COPY package.json package-lock.json* ./
+# Copy package files
+COPY package.json ./
+
+# Install dependencies
 RUN npm install
 
+# Copy project files
 COPY . .
 
-ARG VITE_API_BASE_URL=http://localhost:8000/api
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+# Expose port
+EXPOSE 5173
 
-RUN npm run build
-
-EXPOSE 3000
-
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "3000"]
+# Start development server
+CMD ["npm", "run", "dev", "--", "--host"]

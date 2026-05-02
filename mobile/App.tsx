@@ -1,24 +1,24 @@
-import "react-native-url-polyfill/auto";
-import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
-import { Provider, useSelector } from "react-redux";
-
-import { store } from "./src/redux/store";
-import AuthStack from "./src/navigation/AuthStack";
-import MainStack from "./src/navigation/MainStack";
-import { RootState } from "./src/redux/store";
-
-function AppRouter() {
-  const auth = useSelector((state: RootState) => state.auth);
-  const isAuthenticated = Boolean(auth.tokens?.access_token);
-
-  return <NavigationContainer>{isAuthenticated ? <MainStack /> : <AuthStack />}</NavigationContainer>;
-}
+import React from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { PaperProvider } from 'react-native-paper';
+import { Provider as ReduxProvider } from 'react-redux';
+import { store } from './src/redux/store';
+import { AuthProvider } from './src/context/AuthContext';
+import { RootNavigator } from './src/navigation/RootNavigator';
+import { theme } from './src/theme';
 
 export default function App() {
   return (
-    <Provider store={store}>
-      <AppRouter />
-    </Provider>
+    <ReduxProvider store={store}>
+      <PaperProvider theme={theme}>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <RootNavigator />
+            <StatusBar style="auto" />
+          </AuthProvider>
+        </SafeAreaProvider>
+      </PaperProvider>
+    </ReduxProvider>
   );
 }

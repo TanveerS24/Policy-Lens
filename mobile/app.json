@@ -1,9 +1,50 @@
 {
   "expo": {
-    "name": "PolicyLens",
-    "slug": "policylens",
+    "name": "DentalSchemes India",
+    "slug": "dentalschemes-india",
     "version": "1.0.0",
-    "sdkVersion": "48.0.0",
-    "platforms": ["ios", "android", "web"]
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dentalschemes.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to upload documents.",
+        "NSPhotoLibraryUsageDescription": "This app accesses photos to upload documents."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.dentalschemes.app",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff"
+        }
+      ]
+    ]
   }
 }

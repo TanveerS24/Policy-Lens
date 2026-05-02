@@ -1,118 +1,147 @@
+"""Dental scheme models."""
+
 from datetime import datetime, date
-from typing import Optional, List
-from enum import Enum
+from sqlalchemy import Column, Integer, String, DateTime, Date, Text, Boolean, ForeignKey, JSON, Numeric, Enum as SQLEnum
+from sqlalchemy.orm import relationship
+from enum import Enum as PyEnum
+from app.config.database import Base
 
-from pydantic import BaseModel, Field, HttpUrl, validator
 
-
-class SchemeTypeEnum(str, Enum):
-    NATIONAL = "national"
+class SchemeType(PyEnum):
+    """Scheme type enumeration."""
     STATE = "state"
+    NATIONAL = "national"
+    CENTRAL = "central"
+    NGO = "ngo"
+    PRIVATE = "private"
 
 
-class SchemeStatusEnum(str, Enum):
+class SchemeStatus(PyEnum):
+    """Scheme status enumeration."""
     ACTIVE = "active"
     INACTIVE = "inactive"
-    DISCONTINUED = "discontinued"
+    UPCOMING = "upcoming"
+    EXPIRED = "expired"
 
 
-class SchemeBase(BaseModel):
-    scheme_name: str = Field(..., min_length=3, max_length=200, description="3-200 chars, unique per state")
-    scheme_type: SchemeTypeEnum = Field(..., description="national or state")
-    state_id: Optional[str] = Field(None, description="State ID, null for national schemes")
-    sponsoring_ministry: str = Field(..., max_length=200, description="Sponsoring Ministry/Department")
-    launch_date: date = Field(..., description="Cannot be future date")
-    active_status: SchemeStatusEnum = Field(default=SchemeStatusEnum.ACTIVE)
-    short_description: str = Field(..., min_length=50, max_length=500, description="50-500 chars")
-    detailed_description: str = Field(..., max_length=5000, description="Rich text, max 5000 chars")
-    eligibility_criteria: str = Field(..., max_length=3000, description="Rich text, max 3000 chars")
-    beneficiary_categories: List[str] = Field(..., description="Multi-select tags from beneficiary_categories master")
-    income_ceiling: Optional[int] = Field(None, ge=0, description="INR/year, 0 = no limit")
-    age_min: Optional[int] = Field(None, ge=0, le=120)
-    age_max: Optional[int] = Field(None, ge=0, le=120)
-    services_covered: List[str] = Field(..., description="Multi-select tags from dental_services master")
-    coverage_amount: Optional[int] = Field(None, ge=0, description="INR, 0 = fully free")
-    enrolment_process: str = Field(..., max_length=2000, description="Rich text, max 2000 chars")
-    required_documents: List[str] = Field(..., max_items=20, description="List of required documents")
-    helpline_number: Optional[str] = Field(None, pattern=r"^(\d{10}|1800\d{6,7})$", description="10-digit or 1800 format")
-    official_website_url: Optional[HttpUrl] = Field(None, description="HTTPS preferred")
-    reference_order: Optional[str] = Field(None, max_length=100, description="Government order reference")
+class Scheme(Base):
+    """Dental health scheme model."""
+    __tablename__ = "schemes"
     
-    @validator('launch_date')
-    def validate_launch_date(cls, v):
-        if v > date.today():
-            raise ValueError('Launch date cannot be in the future')
-        return v
+    id = Column(Integer, primary_key=True, index=True)
     
-    @validator('age_max')
-    def validate_age_range(cls, v, values):
-        if 'age_min' in values and values['age_min'] is not None and v is not None:
-            if v < values['age_min']:
-                raise ValueError('age_max must be greater than or equal to age_min')
-        return v
+    # Basic Info
+    name = Column(String(200), nullable=False, index=True)
+    code = Column(String(50), unique=True, nullable=False)
+    type = Column(String(20), nullable=False)  # state, national, central, ngo, private
+    status = Column(String(20), default="active")
     
-    @validator('state_id')
-    def validate_state_id(cls, v, values):
-        if values.get('scheme_type') == SchemeTypeEnum.STATE and not v:
-            raise ValueError('state_id is required for state schemes')
-        if values.get('scheme_type') == SchemeTypeEnum.NATIONAL and v:
-            raise ValueError('state_id should be null for national schemes')
-        return v
-
-
-class SchemeCreate(SchemeBase):
-    pass
-
-
-class SchemeUpdate(BaseModel):
-    scheme_name: Optional[str] = Field(None, min_length=3, max_length=200)
-    scheme_type: Optional[SchemeTypeEnum] = None
-    state_id: Optional[str] = None
-    sponsoring_ministry: Optional[str] = Field(None, max_length=200)
-    launch_date: Optional[date] = None
-    active_status: Optional[SchemeStatusEnum] = None
-    short_description: Optional[str] = Field(None, min_length=50, max_length=500)
-    detailed_description: Optional[str] = Field(None, max_length=5000)
-    eligibility_criteria: Optional[str] = Field(None, max_length=3000)
-    beneficiary_categories: Optional[List[str]] = None
-    income_ceiling: Optional[int] = Field(None, ge=0)
-    age_min: Optional[int] = Field(None, ge=0, le=120)
-    age_max: Optional[int] = Field(None, ge=0, le=120)
-    services_covered: Optional[List[str]] = None
-    coverage_amount: Optional[int] = Field(None, ge=0)
-    enrolment_process: Optional[str] = Field(None, max_length=2000)
-    required_documents: Optional[List[str]] = Field(None, max_items=20)
-    helpline_number: Optional[str] = Field(None, pattern=r"^(\d{10}|1800\d{6,7})$")
-    official_website_url: Optional[HttpUrl] = None
-    reference_order: Optional[str] = Field(None, max_length=100)
-
-
-class SchemeInDB(SchemeBase):
-    id: str = Field(..., alias="_id")
-    version: int = Field(default=1, description="Version number for change tracking")
-    last_updated_by: Optional[str] = Field(None, description="Admin user ID")
-    last_updated_at: datetime = Field(default_factory=datetime.utcnow)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    published_at: Optional[datetime] = None
+    # Government Info
+    ministry = Column(String(100), nullable=True)
+    department = Column(String(100), nullable=True)
+    state = Column(String(50), nullable=True)  # For state schemes
     
-    class Config:
-        populate_by_name = True
-        json_encoders = {datetime: lambda v: v.isoformat(), date: lambda v: v.isoformat()}
-
-
-class SchemePublic(SchemeInDB):
-    pass
-
-
-class SchemeVersion(BaseModel):
-    id: str = Field(..., alias="_id")
-    scheme_id: str
-    version_number: int
-    snapshot: dict = Field(..., description="Full scheme data snapshot")
-    changed_by: str = Field(..., description="Admin user ID")
-    changed_at: datetime = Field(default_factory=datetime.utcnow)
-    change_reason: Optional[str] = Field(None, max_length=500)
+    # Dates
+    launch_date = Column(Date, nullable=True)
+    valid_from = Column(Date, nullable=True)
+    valid_until = Column(Date, nullable=True)
     
-    class Config:
-        populate_by_name = True
-        json_encoders = {datetime: lambda v: v.isoformat()}
+    # Content
+    description = Column(Text, nullable=False)
+    short_description = Column(String(500), nullable=True)
+    
+    # Target Audience
+    target_categories = Column(JSON, default=list)  # ["BPL", "Women", "Senior Citizens"]
+    target_states = Column(JSON, default=list)
+    
+    # Coverage
+    coverage_amount = Column(Numeric(12, 2), nullable=True)
+    services_covered = Column(JSON, default=list)  # ["Extraction", "Dentures", "Cleaning"]
+    
+    # Eligibility
+    min_age = Column(Integer, nullable=True)
+    max_age = Column(Integer, nullable=True)
+    income_criteria = Column(String(200), nullable=True)
+    
+    # Required Documents
+    required_documents = Column(JSON, default=list)
+    
+    # Contact
+    website = Column(String(255), nullable=True)
+    helpline = Column(String(20), nullable=True)
+    email = Column(String(255), nullable=True)
+    
+    # Process Info
+    application_process = Column(Text, nullable=True)
+    processing_time = Column(String(50), nullable=True)
+    
+    # Metadata
+    is_deleted = Column(Boolean, default=False)
+    deleted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = Column(Integer, ForeignKey("admin_users.id"), nullable=True)
+    
+    # Relationships
+    versions = relationship("SchemeVersion", back_populates="scheme", order_by="desc(SchemeVersion.created_at)")
+    bookmarks = relationship("SchemeBookmark", back_populates="scheme")
+    eligibility_checks = relationship("EligibilityCheck", back_populates="scheme")
+    
+    def to_dict(self):
+        """Convert scheme to dictionary."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "code": self.code,
+            "type": self.type,
+            "status": self.status,
+            "ministry": self.ministry,
+            "state": self.state,
+            "launch_date": self.launch_date.isoformat() if self.launch_date else None,
+            "description": self.description,
+            "short_description": self.short_description,
+            "target_categories": self.target_categories,
+            "target_states": self.target_states,
+            "coverage_amount": float(self.coverage_amount) if self.coverage_amount else None,
+            "services_covered": self.services_covered,
+            "min_age": self.min_age,
+            "max_age": self.max_age,
+            "income_criteria": self.income_criteria,
+            "required_documents": self.required_documents,
+            "website": self.website,
+            "helpline": self.helpline,
+            "email": self.email,
+            "application_process": self.application_process,
+            "processing_time": self.processing_time,
+        }
+
+
+class SchemeVersion(Base):
+    """Scheme version history for audit."""
+    __tablename__ = "scheme_versions"
+    
+    id = Column(Integer, primary_key=True)
+    scheme_id = Column(Integer, ForeignKey("schemes.id"), nullable=False)
+    version_number = Column(Integer, nullable=False)
+    data = Column(JSON, nullable=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(Integer, ForeignKey("admin_users.id"), nullable=True)
+    change_reason = Column(String(255), nullable=True)
+    
+    scheme = relationship("Scheme", back_populates="versions")
+
+
+class SchemeBookmark(Base):
+    """User bookmarked schemes."""
+    __tablename__ = "scheme_bookmarks"
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    scheme_id = Column(Integer, ForeignKey("schemes.id"), nullable=False)
+    
+    notifications_enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship("User", back_populates="scheme_bookmarks")
+    scheme = relationship("Scheme", back_populates="bookmarks")

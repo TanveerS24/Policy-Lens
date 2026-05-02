@@ -1,55 +1,93 @@
-from fastapi import FastAPI
+"""Main FastAPI application entry point."""
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
+import structlog
+import time
 
-from app.config.logging import configure_logging
-from app.config.settings import settings
-from app.routers import admin, admin_mfa, admin_users, audit, auth, content, documents, eligibility, files, master_data, notifications, patient_auth, patients, policies, schemes, uploads
-from app.utils.audit_middleware import audit_middleware
-from app.utils.db_init import ensure_indexes
+from app.config.settings import get_settings
+from app.api.v1.router import api_router
+from app.config.database import engine, Base
+
+logger = structlog.get_logger()
+settings = get_settings()
 
 
-def create_app() -> FastAPI:
-    configure_logging()
-
-    app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_PREFIX}/openapi.json")
-
+def create_application() -> FastAPI:
+    """Create and configure the FastAPI application."""
+    app = FastAPI(
+        title=settings.APP_NAME,
+        description="DentalSchemes India - Dental Health Schemes Aggregation Platform",
+        version="1.0.0",
+        docs_url="/api/docs" if settings.DEBUG else None,
+        redoc_url="/api/redoc" if settings.DEBUG else None,
+    )
+    
+    # CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
     
-    # Add audit middleware for logging write operations
-    app.middleware("http")(audit_middleware)
-
-    app.include_router(auth.router, prefix=settings.API_PREFIX)
-    app.include_router(policies.router, prefix=settings.API_PREFIX)
-    app.include_router(uploads.router, prefix=settings.API_PREFIX)
-    app.include_router(admin.router, prefix=settings.API_PREFIX)
-    app.include_router(admin_users.router, prefix=settings.API_PREFIX)
-    app.include_router(admin_mfa.router, prefix=settings.API_PREFIX)
-    app.include_router(audit.router, prefix=settings.API_PREFIX)
-    app.include_router(content.router, prefix=settings.API_PREFIX)
-    app.include_router(master_data.router, prefix=settings.API_PREFIX)
-    app.include_router(patient_auth.router, prefix=settings.API_PREFIX)
-    app.include_router(patients.router, prefix=settings.API_PREFIX)
-    app.include_router(documents.router, prefix=settings.API_PREFIX)
-    app.include_router(schemes.router, prefix=settings.API_PREFIX)
-    app.include_router(eligibility.router, prefix=settings.API_PREFIX)
-    app.include_router(files.router, prefix=settings.API_PREFIX)
-    app.include_router(notifications.router, prefix=settings.API_PREFIX)
-
-    @app.on_event("startup")
-    async def startup_event():
-        await ensure_indexes()
-
-    @app.get("/healthz")
-    async def healthz():
-        return {"status": "ok"}
-
+    # Trusted host middleware
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=settings.ALLOWED_HOSTS,
+    )
+    
+    # Request logging middleware
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next):
+        start_time = time.time()
+        response = await call_next(request)
+        duration = time.time() - start_time
+        
+        logger.info(
+            "request_completed",
+            method=request.method,
+            path=request.url.path,
+            status=response.status_code,
+            duration_ms=round(duration * 1000, 2),
+        )
+        return response
+    
+    # Include API router
+    app.include_router(api_router, prefix="/api/v1")
+    
+    # Exception handlers
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        logger.error("unhandled_exception", error=str(exc), path=request.url.path)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Internal server error"},
+        )
+    
     return app
 
 
-app = create_app()
+app = create_application()
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database tables on startup."""
+    logger.info("application_startup", app_name=settings.APP_NAME)
+    Base.metadata.create_all(bind=engine)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    logger.info("application_shutdown", app_name=settings.APP_NAME)
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "version": "1.0.0"}

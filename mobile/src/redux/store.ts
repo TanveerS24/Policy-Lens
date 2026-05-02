@@ -1,15 +1,22 @@
-import { configureStore } from "@reduxjs/toolkit";
-
-import authReducer from "./slices/authSlice";
-import uiReducer from "./slices/uiSlice";
-import policiesReducer from "./slices/policiesSlice";
+import { configureStore } from '@reduxjs/toolkit';
+import authReducer from './slices/authSlice';
+import schemesReducer from './slices/schemesSlice';
+import documentsReducer from './slices/documentsSlice';
+import notificationsReducer from './slices/notificationsSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
-    ui: uiReducer,
-    policies: policiesReducer,
+    schemes: schemesReducer,
+    documents: documentsReducer,
+    notifications: notificationsReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ['auth/setUser'],
+      },
+    }),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

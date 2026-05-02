@@ -1,71 +1,65 @@
-services:
-  mongodb:
-    image: mongo:7.0
-    container_name: policylens_mongodb
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
+version: '3.8'
 
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: dentalschemes-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-dentalschemes}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # Redis Cache
   redis:
-    image: redis:7.2
-    container_name: policylens_redis
-    restart: unless-stopped
+    image: redis:7-alpine
+    container_name: dentalschemes-redis
     ports:
       - "6379:6379"
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: policylens_ollama
-    restart: unless-stopped
-    ports:
-      - "11435:11434"
     volumes:
-      - ollama_data:/root/.ollama
+      - redis_data:/data
 
+  # Backend API
   backend:
     build:
       context: ./backend
-    container_name: policylens_backend
-    depends_on:
-      - mongodb
-      - redis
-      - ollama
+      dockerfile: Dockerfile
+    container_name: dentalschemes-backend
+    env_file:
+      - .env
     environment:
-      - MONGO_URI=${MONGO_URI:-mongodb://mongodb:27017/policy_lens}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
-      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
-      - SECRET_KEY=${SECRET_KEY:-replace-with-secure-secret}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/dentalschemes}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      - DEBUG=${DEBUG:-false}
     ports:
       - "8000:8000"
+    depends_on:
+      - db
+      - redis
     volumes:
       - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
+  # Admin Frontend
   admin-frontend:
     build:
       context: ./admin-frontend
-      args:
-        VITE_API_BASE_URL: http://localhost:8000/api
-    container_name: policylens_admin
-    depends_on:
-      - backend
-    ports:
-      - "3000:3000"
-
-  mobile:
-    build:
-      context: ./mobile
-    container_name: policylens_mobile
-    depends_on:
-      - backend
-    ports:
-      - "19000:19000"
-      - "19001:19001"
-      - "19002:19002"
+      dockerfile: Dockerfile
+    container_name: dentalschemes-admin
+    env_file:
+      - .env
     environment:
-      - EXPO_PUBLIC_API_BASE_URL=http://backend:8000/api
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000/api/v1}
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
 
 volumes:
-  mongo_data:
-  ollama_data:
+  postgres_data:
+  redis_data:
