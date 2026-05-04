@@ -63,6 +63,7 @@ vector_store/
 # Expo/React Native
 .expo-shared/
 .gradle
+.expo
 Local.properties
 *.iml
 *.jks

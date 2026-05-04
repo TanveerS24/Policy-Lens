@@ -56,7 +56,7 @@ const initialState: SchemesState = {
 // Async thunks
 export const fetchSchemes = createAsyncThunk(
   'schemes/fetchSchemes',
-  async (params: { page?: number; type?: string; state?: string; search?: string } = {}) => {
+  async (params: { page?: number; per_page?: number; type?: string; state?: string; search?: string } = {}) => {
     const response = await api.get('/schemes', { params });
     return response.data;
   }

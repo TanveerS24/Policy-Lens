@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@types/react-native-linear-gradient": "^2.3.1",
+    "expo-linear-gradient": "^55.0.13",
+    "react-native": "^0.73.6",
+    "react-native-svg": "^15.15.4"
+  }
+}

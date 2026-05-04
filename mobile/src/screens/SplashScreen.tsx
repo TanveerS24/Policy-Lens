@@ -1,27 +1,27 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { theme } from '../theme';
+import { currentColors } from '../theme';
+import { AppLogo } from '../components/AppLogo';
 
 export const SplashScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <Text variant="displaySmall" style={styles.logoText}>
-            DentalSchemes
-          </Text>
-          <Text variant="titleMedium" style={styles.subtitle}>
-            India
-          </Text>
+        {/* Logo */}
+        <AppLogo size="large" showSparkle={true} />
+
+        {/* App Name */}
+        <View style={styles.textContainer}>
+          <Text style={styles.logoText}>DentalSchemes</Text>
+          <Text style={styles.subtitle}>India</Text>
         </View>
-        
+
+        {/* Loading Indicator */}
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text variant="bodyMedium" style={styles.loadingText}>
-            Loading...
-          </Text>
+          <ActivityIndicator size="large" color={currentColors.primary} />
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -31,7 +31,7 @@ export const SplashScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: currentColors.background,
   },
   content: {
     flex: 1,
@@ -39,23 +39,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
-  logoContainer: {
+  textContainer: {
     alignItems: 'center',
     marginBottom: 48,
   },
   logoText: {
-    color: theme.colors.primary,
+    fontSize: 32,
     fontWeight: 'bold',
+    color: currentColors.primary,
   },
   subtitle: {
-    color: theme.colors.onSurfaceVariant,
+    fontSize: 20,
+    color: currentColors.textSecondary,
     marginTop: 4,
+    letterSpacing: 4,
   },
   loaderContainer: {
     alignItems: 'center',
   },
   loadingText: {
     marginTop: 16,
-    color: theme.colors.onSurfaceVariant,
+    fontSize: 14,
+    color: currentColors.textSecondary,
   },
 });

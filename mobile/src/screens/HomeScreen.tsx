@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { Text, Card, Button, Avatar, Chip, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { Text, Card, Avatar, Chip, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
@@ -8,7 +8,8 @@ import { RootState, AppDispatch } from '../redux/store';
 import { fetchSchemes, Scheme } from '../redux/slices/schemesSlice';
 import { fetchBookmarks } from '../redux/slices/schemesSlice';
 import { fetchNotifications } from '../redux/slices/notificationsSlice';
-import { theme, colors } from '../theme';
+import { theme, currentColors } from '../theme';
+import { AppLogo } from '../components/AppLogo';
 
 export const HomeScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -27,7 +28,7 @@ export const HomeScreen: React.FC = () => {
     await Promise.all([
       dispatch(fetchSchemes({ page: 1, per_page: 5 })),
       dispatch(fetchBookmarks()),
-      dispatch(fetchNotifications()),
+      dispatch(fetchNotifications({})),
     ]);
   };
 
@@ -39,62 +40,81 @@ export const HomeScreen: React.FC = () => {
 
   const renderQuickActions = () => (
     <View style={styles.quickActions}>
-      <Card style={styles.actionCard} onPress={() => navigation.navigate('Schemes' as never)}>
-        <Card.Content style={styles.actionContent}>
-          <Avatar.Icon size={40} icon="tooth" style={{ backgroundColor: theme.colors.primaryContainer }} />
-          <Text variant="bodyMedium" style={styles.actionText}>Browse Schemes</Text>
-        </Card.Content>
-      </Card>
-      
-      <Card style={styles.actionCard} onPress={() => navigation.navigate('Documents' as never)}>
-        <Card.Content style={styles.actionContent}>
-          <Avatar.Icon size={40} icon="file-upload" style={{ backgroundColor: theme.colors.secondaryContainer }} />
-          <Text variant="bodyMedium" style={styles.actionText}>Upload Policy</Text>
-        </Card.Content>
-      </Card>
+      <TouchableOpacity
+        style={[styles.actionCard, { backgroundColor: currentColors.cardBg }]}
+        onPress={() => navigation.navigate('Schemes' as never)}
+      >
+        <View style={styles.actionContent}>
+          <View style={[styles.actionIcon, { backgroundColor: `${currentColors.primary}20` }]}>
+            <Text style={styles.actionIconText}>🔍</Text>
+          </View>
+          <Text style={styles.actionText}>Browse Schemes</Text>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.actionCard, { backgroundColor: currentColors.cardBg }]}
+        onPress={() => navigation.navigate('Documents' as never)}
+      >
+        <View style={styles.actionContent}>
+          <View style={[styles.actionIcon, { backgroundColor: `${currentColors.primary}20` }]}>
+            <Text style={styles.actionIconText}>📄</Text>
+          </View>
+          <Text style={styles.actionText}>Upload Policy</Text>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 
   const renderFeaturedSchemes = () => (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text variant="titleLarge" style={styles.sectionTitle}>Featured Schemes</Text>
-        <Button mode="text" onPress={() => navigation.navigate('Schemes' as never)}>
-          View All
-        </Button>
+        <Text style={styles.sectionTitle}>Featured Schemes</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Schemes' as never)}>
+          <Text style={styles.viewAll}>View All</Text>
+        </TouchableOpacity>
       </View>
 
       {isLoading ? (
-        <ActivityIndicator style={styles.loader} />
+        <ActivityIndicator style={styles.loader} color={currentColors.primary} />
       ) : (
         schemes.slice(0, 3).map((scheme: Scheme) => (
-          <Card key={scheme.id} style={styles.schemeCard}>
-            <Card.Content>
-              <View style={styles.schemeHeader}>
-                <View>
-                  <Text variant="titleMedium">{scheme.name}</Text>
-                  <Text variant="bodySmall" style={styles.ministryText}>
-                    {scheme.ministry || scheme.type}
-                  </Text>
-                </View>
-                <Chip compact>{scheme.type}</Chip>
-              </View>
-              
-              <Text variant="bodyMedium" style={styles.description} numberOfLines={2}>
-                {scheme.short_description || scheme.description}
-              </Text>
-
-              {scheme.coverage_amount && (
-                <Text variant="bodySmall" style={styles.coverage}>
-                  Coverage: ₹{scheme.coverage_amount.toLocaleString()}
+          <TouchableOpacity key={scheme.id} style={styles.schemeCard}>
+            <View style={styles.schemeHeader}>
+              <View style={styles.schemeInfo}>
+                <Text style={styles.schemeName}>{scheme.name}</Text>
+                <Text style={styles.ministryText}>
+                  {scheme.ministry || scheme.type}
                 </Text>
-              )}
-            </Card.Content>
-            <Card.Actions>
-              <Button onPress={() => {}}>Check Eligibility</Button>
-              <Button mode="contained">View Details</Button>
-            </Card.Actions>
-          </Card>
+              </View>
+              <View style={[styles.typeBadge, { backgroundColor: `${currentColors.primary}20` }]}>
+                <Text style={[styles.typeText, { color: currentColors.primary }]}>
+                  {scheme.type}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.description} numberOfLines={2}>
+              {scheme.short_description || scheme.description}
+            </Text>
+
+            {scheme.coverage_amount && (
+              <Text style={[styles.coverage, { color: currentColors.primary }]}>
+                Coverage: ₹{scheme.coverage_amount.toLocaleString()}
+              </Text>
+            )}
+
+            <View style={styles.cardActions}>
+              <TouchableOpacity style={styles.secondaryButton}>
+                <Text style={[styles.secondaryButtonText, { color: currentColors.textSecondary }]}>
+                  Check Eligibility
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: currentColors.primary }]}>
+                <Text style={styles.primaryButtonText}>View Details</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
         ))
       )}
     </View>
@@ -105,46 +125,59 @@ export const HomeScreen: React.FC = () => {
 
     return (
       <View style={styles.section}>
-        <Text variant="titleLarge" style={styles.sectionTitle}>Your Bookmarks</Text>
-        
+        <Text style={styles.sectionTitle}>Your Bookmarks</Text>
+
         {bookmarks.slice(0, 2).map((scheme: Scheme) => (
-          <Card key={scheme.id} style={styles.schemeCard}>
-            <Card.Content>
-              <Text variant="titleMedium">{scheme.name}</Text>
-              <Text variant="bodySmall" style={styles.ministryText}>
+          <TouchableOpacity key={scheme.id} style={styles.bookmarkCard}>
+            <View style={styles.bookmarkContent}>
+              <Text style={styles.schemeName}>{scheme.name}</Text>
+              <Text style={styles.ministryText}>
                 {scheme.ministry || scheme.type}
               </Text>
-            </Card.Content>
-          </Card>
+            </View>
+            <Text style={[styles.bookmarkIcon, { color: currentColors.primary }]}>🔖</Text>
+          </TouchableOpacity>
         ))}
       </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: currentColors.background }]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={currentColors.primary}
+            colors={[currentColors.primary]}
+          />
+        }
       >
         <View style={styles.header}>
-          <View>
-            <Text variant="headlineSmall" style={styles.greeting}>
-              Hello, {user?.name?.split(' ')[0] || 'User'}
-            </Text>
-            <Text variant="bodyMedium" style={styles.subtitle}>
-              Find dental health schemes available for you
-            </Text>
+          <View style={styles.headerLeft}>
+            <AppLogo size="small" showSparkle={false} />
+            <View style={styles.headerText}>
+              <Text style={styles.greeting}>
+                Hello, {user?.name?.split(' ')[0] || 'User'}
+              </Text>
+              <Text style={styles.subtitle}>
+                Find dental health schemes
+              </Text>
+            </View>
           </View>
-          
-          <View style={styles.notificationBadge}>
-            <Avatar.Icon size={40} icon="bell" style={{ backgroundColor: theme.colors.surfaceVariant }} />
+
+          <TouchableOpacity style={styles.notificationBadge}>
+            <View style={[styles.notificationIcon, { backgroundColor: currentColors.cardBg }]}>
+              <Text style={styles.notificationEmoji}>🔔</Text>
+            </View>
             {unreadCount > 0 && (
-              <View style={styles.badge}>
+              <View style={[styles.badge, { backgroundColor: currentColors.primary }]}>
                 <Text style={styles.badgeText}>{unreadCount}</Text>
               </View>
             )}
-          </View>
+          </TouchableOpacity>
         </View>
 
         {renderQuickActions()}
@@ -158,33 +191,53 @@ export const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   scrollContent: {
-    padding: 16,
+    padding: 20,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerText: {
+    justifyContent: 'center',
   },
   greeting: {
+    fontSize: 20,
     fontWeight: 'bold',
-    color: theme.colors.onSurface,
+    color: currentColors.textPrimary,
   },
   subtitle: {
-    color: theme.colors.onSurfaceVariant,
-    marginTop: 4,
+    fontSize: 13,
+    color: currentColors.textSecondary,
+    marginTop: 2,
   },
   notificationBadge: {
     position: 'relative',
+  },
+  notificationIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: currentColors.border,
+  },
+  notificationEmoji: {
+    fontSize: 20,
   },
   badge: {
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: theme.colors.error,
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -192,62 +245,165 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeText: {
-    color: 'white',
-    fontSize: 12,
+    color: '#FFFFFF',
+    fontSize: 11,
     fontWeight: 'bold',
   },
   quickActions: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 28,
   },
   actionCard: {
     flex: 1,
-    elevation: 2,
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: currentColors.border,
+    shadowColor: currentColors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
   },
   actionContent: {
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+  },
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionIconText: {
+    fontSize: 24,
   },
   actionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: currentColors.textPrimary,
     textAlign: 'center',
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   sectionTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
-    color: theme.colors.onSurface,
+    color: currentColors.textPrimary,
+  },
+  viewAll: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: currentColors.primary,
   },
   loader: {
     marginVertical: 24,
   },
   schemeCard: {
+    backgroundColor: currentColors.cardBg,
+    borderRadius: 20,
+    padding: 16,
     marginBottom: 12,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: currentColors.border,
+    shadowColor: currentColors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
   },
   schemeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  schemeInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  schemeName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: currentColors.textPrimary,
+    marginBottom: 4,
+  },
+  typeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  typeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   ministryText: {
-    color: theme.colors.onSurfaceVariant,
+    fontSize: 13,
+    color: currentColors.textSecondary,
   },
   description: {
-    marginTop: 8,
-    color: theme.colors.onSurface,
+    fontSize: 14,
+    color: currentColors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 12,
   },
   coverage: {
-    marginTop: 8,
-    color: theme.colors.primary,
+    fontSize: 14,
     fontWeight: '600',
+    marginBottom: 16,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  secondaryButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: currentColors.inputBg,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  primaryButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  bookmarkCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: currentColors.cardBg,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: currentColors.border,
+  },
+  bookmarkContent: {
+    flex: 1,
+  },
+  bookmarkIcon: {
+    fontSize: 20,
   },
 });
