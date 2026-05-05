@@ -2,12 +2,17 @@
 
 from datetime import datetime, timedelta
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import bcrypt
+import os
+import uuid
+import requests
+import PyPDF2
+import io
 
 from app.config.database import get_db
 from app.config.settings import get_settings
@@ -15,6 +20,8 @@ from app.models.admin import AdminUser, AdminRole, AdminStatus
 from app.models.scheme import Scheme
 from app.models.user import User
 from app.models.audit import AuditLog
+from app.models.eligibility import EligibilityCheck
+from app.models.document import Document
 from app.services.jwt_service import JWTService
 
 router = APIRouter()
@@ -42,6 +49,33 @@ class CreateSchemeRequest(BaseModel):
     code: str
     type: str
     description: str
+    ministry: Optional[str] = None
+    state: Optional[str] = None
+    target_categories: List[str] = []
+    services_covered: List[str] = []
+    coverage_amount: Optional[float] = None
+    min_age: Optional[int] = None
+    max_age: Optional[int] = None
+    required_documents: List[str] = []
+    website: Optional[str] = None
+    helpline: Optional[str] = None
+
+
+class SchemeExtractResponse(BaseModel):
+    eligibility_criteria: str
+    about_scheme: str
+    name: str
+    code: str
+    type: str
+
+
+class PublishSchemeRequest(BaseModel):
+    name: str
+    code: str
+    type: str
+    description: str
+    eligibility_criteria: str
+    about_scheme: str
     ministry: Optional[str] = None
     state: Optional[str] = None
     target_categories: List[str] = []
@@ -195,8 +229,17 @@ async def get_dashboard(
         Scheme.status == "active"
     ).count()
     
+    # Eligibility checks
+    total_eligibility_checks = db.query(func.count(EligibilityCheck.id)).scalar()
+    eligibility_checks_this_week = db.query(func.count(EligibilityCheck.id)).filter(
+        EligibilityCheck.created_at >= datetime.utcnow() - timedelta(days=7)
+    ).scalar()
+    
     # Documents
-    total_documents = db.query(func.count(Scheme.id)).scalar()  # Placeholder
+    total_documents = db.query(func.count(Document.id)).scalar()
+    documents_this_week = db.query(func.count(Document.id)).filter(
+        Document.uploaded_at >= datetime.utcnow() - timedelta(days=7)
+    ).scalar()
     
     # Recent activity
     recent_audit_logs = db.query(AuditLog).order_by(
@@ -210,6 +253,9 @@ async def get_dashboard(
             "total_schemes": total_schemes,
             "active_schemes": active_schemes,
             "total_documents": total_documents,
+            "documents_this_week": documents_this_week,
+            "total_eligibility_checks": total_eligibility_checks,
+            "eligibility_checks_this_week": eligibility_checks_this_week,
         },
         "recent_activity": [
             {
@@ -522,4 +568,224 @@ async def get_audit_logs(
             "per_page": per_page,
             "total": total,
         }
+    }
+
+
+def extract_text_from_pdf(file_content: bytes) -> str:
+    """Extract text from PDF file."""
+    try:
+        pdf_file = io.BytesIO(file_content)
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text() + "\n"
+        return text
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to extract text from PDF: {str(e)}")
+
+
+def check_ollama_health() -> bool:
+    """Check if Ollama is reachable."""
+    ollama_host = os.environ.get('OLLAMA_HOST', 'host.docker.internal')
+    try:
+        response = requests.get(f"http://{ollama_host}:11434/api/tags", timeout=5)
+        return response.status_code == 200
+    except:
+        return False
+
+
+def query_ollama_rag(text: str, prompt: str) -> str:
+    """Query Ollama RAG running on localhost:11434."""
+    # Use host.docker.internal when running in Docker, localhost for local dev
+    ollama_host = os.environ.get('OLLAMA_HOST', 'host.docker.internal')
+    ollama_url = f"http://{ollama_host}:11434/api/generate"
+    
+    # First check if Ollama is healthy
+    if not check_ollama_health():
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Ollama RAG service not available at http://{ollama_host}:11434. Ensure Ollama is running with: ollama serve"
+        )
+    
+    try:
+        response = requests.post(
+            ollama_url,
+            json={
+                "model": "llama3.1:8b",
+                "prompt": f"""Context: {text[:8000]}
+
+Instruction: {prompt}
+
+Provide a detailed response based on the context above:""",
+                "stream": False
+            },
+            timeout=60
+        )
+        response.raise_for_status()
+        result = response.json()
+        return result.get("response", "")
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code=504, detail="Ollama request timed out. The model may be loading or the PDF is too large.")
+    except requests.exceptions.ConnectionError:
+        raise HTTPException(status_code=503, detail=f"Ollama RAG service not available. Ensure Ollama is running.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"RAG processing failed: {str(e)}")
+
+
+@router.post("/schemes/extract-from-pdf", response_model=SchemeExtractResponse)
+async def extract_scheme_from_pdf(
+    file: UploadFile = File(...),
+    admin: AdminUser = Depends(require_role("super_admin", "content_admin")),
+    db: Session = Depends(get_db)
+):
+    """Upload PDF and extract scheme information using RAG."""
+    # Validate file type
+    if not file.content_type or not file.content_type.endswith("pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+    
+    # Read file content
+    contents = await file.read()
+    max_size = 10 * 1024 * 1024  # 10MB
+    
+    if len(contents) > max_size:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size: 10MB")
+    
+    # Extract text from PDF
+    pdf_text = extract_text_from_pdf(contents)
+    
+    if len(pdf_text) < 100:
+        raise HTTPException(status_code=400, detail="PDF contains insufficient text for extraction")
+    
+    # Extract eligibility criteria
+    eligibility_prompt = """Extract the eligibility criteria from this scheme document. 
+Focus on: age group, gender requirements, income criteria, category requirements (SC/ST/OBC/BPL/etc.), 
+residential requirements, and any other specific eligibility conditions.
+
+Provide a comprehensive but well-structured summary of who is eligible for this scheme."""
+    
+    eligibility_criteria = query_ollama_rag(pdf_text, eligibility_prompt)
+    
+    # Extract about/summary
+    about_prompt = """Extract a concise summary of what this scheme is about. 
+Include: the purpose of the scheme, what benefits it provides, which department/ministry runs it, 
+and who can benefit from it. Keep it informative but concise (2-3 paragraphs max)."""
+    
+    about_scheme = query_ollama_rag(pdf_text, about_prompt)
+    
+    # Extract basic info
+    info_prompt = """Extract the following information from the scheme document:
+1. Scheme name (full official name)
+2. A short code or acronym for the scheme (if not available, suggest one based on the name)
+3. Type of scheme: one of [state, national, central, ngo, private]
+
+Return ONLY a JSON object in this exact format:
+{"name": "...", "code": "...", "type": "..."}"""
+    
+    basic_info_text = query_ollama_rag(pdf_text, info_prompt)
+    
+    # Parse basic info (attempt to extract JSON)
+    import json
+    import re
+    try:
+        # Try to find JSON in the response
+        json_match = re.search(r'\{[^}]+\}', basic_info_text)
+        if json_match:
+            basic_info = json.loads(json_match.group())
+        else:
+            basic_info = {"name": file.filename.replace(".pdf", ""), "code": "NEW_SCHEME", "type": "national"}
+    except:
+        basic_info = {"name": file.filename.replace(".pdf", ""), "code": "NEW_SCHEME", "type": "national"}
+    
+    return {
+        "eligibility_criteria": eligibility_criteria,
+        "about_scheme": about_scheme,
+        "name": basic_info.get("name", file.filename.replace(".pdf", "")),
+        "code": basic_info.get("code", "NEW_SCHEME"),
+        "type": basic_info.get("type", "national")
+    }
+
+
+@router.post("/schemes/regenerate", response_model=SchemeExtractResponse)
+async def regenerate_scheme_content(
+    file: UploadFile = File(...),
+    admin: AdminUser = Depends(require_role("super_admin", "content_admin")),
+    db: Session = Depends(get_db)
+):
+    """Regenerate scheme content from PDF using RAG."""
+    return await extract_scheme_from_pdf(file, admin, db)
+
+
+@router.post("/schemes/publish")
+async def publish_scheme(
+    request: PublishSchemeRequest,
+    admin: AdminUser = Depends(require_role("super_admin", "content_admin")),
+    db: Session = Depends(get_db)
+):
+    """Publish scheme and notify all users."""
+    # Check if code exists
+    existing = db.query(Scheme).filter(Scheme.code == request.code).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Scheme code already exists")
+    
+    # Create scheme
+    scheme = Scheme(
+        name=request.name,
+        code=request.code,
+        type=request.type,
+        description=request.about_scheme,
+        short_description=request.about_scheme[:200] if len(request.about_scheme) > 200 else request.about_scheme,
+        ministry=request.ministry,
+        state=request.state,
+        target_categories=request.target_categories,
+        services_covered=request.services_covered,
+        coverage_amount=request.coverage_amount,
+        min_age=request.min_age,
+        max_age=request.max_age,
+        required_documents=request.required_documents,
+        website=request.website,
+        helpline=request.helpline,
+        created_by=admin.id,
+        status="active"
+    )
+    
+    db.add(scheme)
+    db.commit()
+    db.refresh(scheme)
+    
+    # Log action
+    audit_log = AuditLog(
+        actor_type="admin",
+        actor_id=admin.id,
+        admin_id=admin.id,
+        action="scheme_create",
+        resource_type="scheme",
+        resource_id=scheme.id,
+        success="success",
+        description=f"Published scheme: {scheme.name}"
+    )
+    db.add(audit_log)
+    
+    # Create notifications for all users
+    from app.models.notification import Notification
+    
+    all_users = db.query(User).filter(User.is_active == True).all()
+    
+    for user in all_users:
+        notification = Notification(
+            user_id=user.id,
+            title=f"New Scheme Available: {scheme.name}",
+            message=f"A new dental scheme '{scheme.name}' has been published. Check if you're eligible!",
+            notification_type="scheme_update",
+            related_type="scheme",
+            related_id=scheme.id,
+            deep_link=f"/schemes/{scheme.id}"
+        )
+        db.add(notification)
+    
+    db.commit()
+    
+    return {
+        "message": "Scheme published successfully",
+        "scheme_id": scheme.id,
+        "notifications_sent": len(all_users)
     }

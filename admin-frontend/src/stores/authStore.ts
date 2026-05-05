@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import axios from 'axios'
 
-interface AdminUser {
+export interface AdminUser {
   id: number
   name: string
   email: string

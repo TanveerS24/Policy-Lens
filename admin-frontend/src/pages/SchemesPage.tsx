@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Filter, Edit2, Trash2 } from 'lucide-react'
 import axios from 'axios'
 
@@ -21,13 +22,14 @@ const fetchSchemes = async (): Promise<Scheme[]> => {
 }
 
 export const SchemesPage: React.FC = () => {
+  const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const { data: schemes, isLoading } = useQuery({
     queryKey: ['schemes'],
     queryFn: fetchSchemes,
   })
 
-  const filteredSchemes = schemes?.filter(scheme =>
+  const filteredSchemes = schemes?.filter((scheme: Scheme) =>
     scheme.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     scheme.code.toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -36,7 +38,7 @@ export const SchemesPage: React.FC = () => {
     <div>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">Schemes</h1>
-        <button className="btn-primary">
+        <button className="btn-primary" onClick={() => navigate('/schemes/add')}>
           <Plus className="h-4 w-4 mr-2" />
           Add Scheme
         </button>
@@ -75,7 +77,7 @@ export const SchemesPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredSchemes?.map((scheme) => (
+              {filteredSchemes?.map((scheme: Scheme) => (
                 <tr key={scheme.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {scheme.name}

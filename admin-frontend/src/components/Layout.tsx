@@ -10,7 +10,9 @@ import {
   Menu,
   X
 } from 'lucide-react'
-import { useAuthStore } from '../stores/authStore'
+import { useAuthStore, AdminUser } from '../stores/authStore'
+import { ToastContainer } from './Toast'
+import { useToast } from '../hooks/useToast'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -28,6 +30,22 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
   const { user, logout } = useAuthStore()
+  const { toasts, removeToast, success: toastSuccess, error: toastError, warning: toastWarning, info: toastInfo } = useToast()
+
+  // Listen for toast events from child components
+  React.useEffect(() => {
+    const handleToast = (e: CustomEvent) => {
+      const { type, message } = e.detail
+      switch (type) {
+        case 'success': toastSuccess(message); break
+        case 'error': toastError(message); break
+        case 'warning': toastWarning(message); break
+        case 'info': toastInfo(message); break
+      }
+    }
+    document.addEventListener('toast', handleToast as EventListener)
+    return () => document.removeEventListener('toast', handleToast as EventListener)
+  }, [toastSuccess, toastError, toastWarning, toastInfo])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -63,6 +81,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       {/* Main content */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+
       <div className="lg:pl-72">
         <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
           <button
@@ -108,7 +128,6 @@ interface SidebarContentProps {
 const SidebarContent: React.FC<SidebarContentProps> = ({ 
   navigation, 
   location, 
-  user, 
   onLogout,
   onClose 
 }) => (

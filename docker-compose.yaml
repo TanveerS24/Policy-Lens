@@ -36,6 +36,7 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
       - DEBUG=${DEBUG:-false}
+      - OLLAMA_HOST=${OLLAMA_HOST:-host.docker.internal}
     ports:
       - "8000:8000"
     depends_on:
@@ -55,10 +56,16 @@ services:
       - .env
     environment:
       - VITE_API_URL=${VITE_API_URL:-http://localhost:8000/api/v1}
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
     ports:
       - "5173:5173"
     depends_on:
       - backend
+    volumes:
+      - ./admin-frontend:/app
+      - /app/node_modules
+    command: ["npm", "run", "dev", "--", "--host", "--port", "5173"]
 
 volumes:
   postgres_data:

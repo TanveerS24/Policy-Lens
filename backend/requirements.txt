@@ -25,6 +25,10 @@ pillow==10.2.0
 # AI Integration
 anthropic==0.21.3
 openai==1.12.0
+requests==2.31.0
+
+# PDF Processing
+PyPDF2==3.0.1
 
 # Utils
 python-dotenv==1.0.1

@@ -5,6 +5,7 @@ import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SchemesPage } from './pages/SchemesPage'
+import { AddSchemePage } from './pages/AddSchemePage'
 import { UsersPage } from './pages/UsersPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -26,6 +27,7 @@ function App() {
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/schemes" element={<SchemesPage />} />
+        <Route path="/schemes/add" element={<AddSchemePage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/audit-logs" element={<AuditLogsPage />} />
         <Route path="/settings" element={<SettingsPage />} />

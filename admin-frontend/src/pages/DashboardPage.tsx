@@ -11,19 +11,39 @@ interface DashboardStats {
   new_users_today: number
   total_schemes: number
   active_schemes: number
+  total_documents: number
+  documents_this_week: number
+  total_eligibility_checks: number
+  eligibility_checks_this_week: number
 }
 
-const fetchDashboard = async (): Promise<DashboardStats> => {
+interface ActivityItem {
+  id: number
+  action: string
+  actor_type: string
+  resource_type: string
+  created_at: string
+}
+
+interface DashboardResponse {
+  statistics: DashboardStats
+  recent_activity: ActivityItem[]
+}
+
+const fetchDashboard = async (): Promise<DashboardResponse> => {
   const response = await axios.get(`${API_URL}/admin/dashboard`)
-  return response.data.statistics
+  return response.data
 }
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate()
-  const { data: stats, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: fetchDashboard,
   })
+
+  const stats = data?.statistics
+  const recentActivity = data?.recent_activity || []
 
   const statCards = [
     { 
@@ -42,15 +62,15 @@ export const DashboardPage: React.FC = () => {
     },
     { 
       name: 'Eligibility Checks', 
-      value: '1,234', 
-      change: '+12% from last week',
+      value: stats?.total_eligibility_checks || 0, 
+      change: `+${stats?.eligibility_checks_this_week || 0} this week`,
       icon: Activity,
       color: 'bg-purple-500'
     },
     { 
       name: 'Documents Processed', 
-      value: '567', 
-      change: '+5% from last week',
+      value: stats?.total_documents || 0, 
+      change: `+${stats?.documents_this_week || 0} this week`,
       icon: TrendingUp,
       color: 'bg-orange-500'
     },
@@ -99,24 +119,32 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div className="p-6">
             <ul className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <li key={i} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                      <Activity className="h-4 w-4 text-primary-600" />
+              {isLoading ? (
+                <li className="text-sm text-gray-500">Loading...</li>
+              ) : recentActivity.length === 0 ? (
+                <li className="text-sm text-gray-500">No recent activity</li>
+              ) : (
+                recentActivity.slice(0, 5).map((activity: ActivityItem) => (
+                  <li key={activity.id} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
+                        <Activity className="h-4 w-4 text-primary-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {activity.action.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {activity.resource_type} by {activity.actor_type}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        New scheme added
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Ayushman Bharat Dental
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs text-gray-500">2 hours ago</span>
-                </li>
-              ))}
+                    <span className="text-xs text-gray-500">
+                      {activity.created_at ? new Date(activity.created_at).toLocaleString() : 'Unknown'}
+                    </span>
+                  </li>
+                ))
+              )}
             </ul>
           </div>
         </div>
