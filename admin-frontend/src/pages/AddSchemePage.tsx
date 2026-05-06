@@ -33,13 +33,32 @@ interface SchemeFormData {
   helpline: string
 }
 
-const extractFromPDF = async (file: File, token: string): Promise<ExtractedData> => {
+const uploadPDF = async (file: File, token: string, onProgress: (progress: number) => void): Promise<{ file_id: string; filename: string; size: number }> => {
   const formData = new FormData()
   formData.append('file', file)
   
-  const response = await axios.post(`${API_URL}/admin/schemes/extract-from-pdf`, formData, {
+  const response = await axios.post(`${API_URL}/admin/schemes/upload-pdf`, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
+      'Authorization': `Bearer ${token}`
+    },
+    onUploadProgress: (progressEvent) => {
+      const percentCompleted = progressEvent.total
+        ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+        : 0
+      onProgress(percentCompleted)
+    }
+  })
+  return response.data
+}
+
+const extractFromPDF = async (fileId: string, token: string): Promise<ExtractedData> => {
+  const formData = new FormData()
+  formData.append('file_id', fileId)
+  
+  const response = await axios.post(`${API_URL}/admin/schemes/extract-from-pdf`, formData, {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
       'Authorization': `Bearer ${token}`
     }
   })
@@ -73,6 +92,8 @@ export const AddSchemePage: React.FC = () => {
   const { token } = useAuthStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [uploadedFileId, setUploadedFileId] = useState<string | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<number>(0)
   const [activeSection, setActiveSection] = useState<'eligibility' | 'about'>('eligibility')
   
   const [formData, setFormData] = useState<SchemeFormData>({
@@ -99,8 +120,8 @@ export const AddSchemePage: React.FC = () => {
     document.dispatchEvent(new CustomEvent('toast', { detail: { type, message } }))
   }
 
-  const extractMutation = useMutation<ExtractedData, Error, File>({
-    mutationFn: (file: File) => extractFromPDF(file, token || ''),
+  const extractMutation = useMutation<ExtractedData, Error, string>({
+    mutationFn: (fileId: string) => extractFromPDF(fileId, token || ''),
     onSuccess: (data: ExtractedData) => {
       setError(null)
       setFormData(prev => ({
@@ -160,15 +181,38 @@ export const AddSchemePage: React.FC = () => {
     }
   })
 
+  const uploadMutation = useMutation<{ file_id: string; filename: string; size: number }, Error, File>({
+    mutationFn: (file: File) => uploadPDF(file, token || '', setUploadProgress),
+    onSuccess: (data) => {
+      setUploadedFileId(data.file_id)
+      setUploadProgress(100)
+      showToast('success', `File "${data.filename}" uploaded successfully! Click "Send to AI" to extract scheme details.`)
+    },
+    onError: (error: Error) => {
+      const msg = error.message || 'Failed to upload PDF'
+      showToast('error', msg)
+      setUploadProgress(0)
+    }
+  })
+
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       if (file.type !== 'application/pdf') {
-        alert('Please upload a PDF file')
+        showToast('error', 'Please upload a PDF file')
         return
       }
       setUploadedFile(file)
-      extractMutation.mutate(file)
+      setUploadProgress(0)
+      setUploadedFileId(null)
+      // Start upload immediately
+      uploadMutation.mutate(file)
+    }
+  }
+
+  const handleSendToAI = () => {
+    if (uploadedFileId) {
+      extractMutation.mutate(uploadedFileId)
     }
   }
 
@@ -224,18 +268,61 @@ export const AddSchemePage: React.FC = () => {
       )}
 
       {/* Processing State */}
-      {extractMutation.isPending && (
+      {/* Upload Progress */}
+      {uploadMutation.isPending && (
         <div className="card p-8 mb-6">
           <div className="text-center">
             <div className="mx-auto h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 animate-pulse">
-              <RefreshCw className="h-8 w-8 text-blue-600 animate-spin" />
+              <Upload className="h-8 w-8 text-blue-600" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Processing PDF...
+              Uploading PDF...
             </h3>
-            <p className="text-sm text-gray-500 max-w-md mx-auto">
+            <p className="text-sm text-gray-500 max-w-md mx-auto mb-4">
+              Uploading file to server. Please wait...
+            </p>
+            
+            {/* Progress Bar */}
+            <div className="max-w-md mx-auto">
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                <span>Uploading</span>
+                <span>{Math.round(uploadProgress)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Processing State */}
+      {extractMutation.isPending && (
+        <div className="card p-8 mb-6">
+          <div className="text-center">
+            <div className="mx-auto h-16 w-16 bg-purple-100 rounded-full flex items-center justify-center mb-4 animate-pulse">
+              <Sparkles className="h-8 w-8 text-purple-600 animate-spin" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Processing with AI...
+            </h3>
+            <p className="text-sm text-gray-500 max-w-md mx-auto mb-4">
               Extracting text and querying AI for eligibility criteria and scheme details. This may take 30-60 seconds.
             </p>
+            
+            {/* Processing Progress */}
+            <div className="max-w-md mx-auto">
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                <span>AI Processing</span>
+                <span>Processing...</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div className="bg-purple-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }} />
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -251,7 +338,7 @@ export const AddSchemePage: React.FC = () => {
               Upload Scheme PDF
             </h3>
             <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
-              Upload a PDF document containing the scheme details. Our AI will extract the eligibility criteria and scheme information.
+              Upload a PDF document containing the scheme details, then send it to AI for extraction.
             </p>
             <input
               ref={fileInputRef}
@@ -260,23 +347,39 @@ export const AddSchemePage: React.FC = () => {
               onChange={handleFileChange}
               className="hidden"
             />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={extractMutation.isPending}
-              className="btn-primary"
-            >
-              {extractMutation.isPending ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Select PDF File
-                </>
-              )}
-            </button>
+            
+            {!uploadedFile ? (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="btn-primary"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Select PDF File
+              </button>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                  <FileText className="h-4 w-4" />
+                  <span className="font-medium">{uploadedFile.name}</span>
+                  <span className="text-gray-400">({(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)</span>
+                </div>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="btn-secondary"
+                  >
+                    Change File
+                  </button>
+                  <button
+                    onClick={handleSendToAI}
+                    className="btn-primary bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Send to AI
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

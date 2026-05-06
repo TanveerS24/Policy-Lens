@@ -36,7 +36,7 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
       - DEBUG=${DEBUG:-false}
-      - OLLAMA_HOST=${OLLAMA_HOST:-host.docker.internal}
+      - OLLAMA_HOST=172.25.32.1
     ports:
       - "8000:8000"
     depends_on:

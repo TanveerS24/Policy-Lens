@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -28,6 +28,15 @@ router = APIRouter()
 settings = get_settings()
 jwt_service = JWTService()
 security = HTTPBearer()
+
+# Temporary storage for uploaded PDFs (file_id -> file_content)
+temp_pdf_storage = {}
+
+class PDFUploadResponse(BaseModel):
+    file_id: str
+    filename: str
+    size: int
+    message: str
 
 
 # Schemas
@@ -584,20 +593,43 @@ def extract_text_from_pdf(file_content: bytes) -> str:
         raise HTTPException(status_code=400, detail=f"Failed to extract text from PDF: {str(e)}")
 
 
+def get_ollama_host() -> str:
+    """Get Ollama host, trying multiple options for Docker compatibility."""
+    # First check env var
+    env_host = os.environ.get('OLLAMA_HOST')
+    if env_host:
+        return env_host
+    
+    # Try common Docker host addresses
+    hosts_to_try = ['localhost', '127.0.0.1', '172.17.0.1', 'host.docker.internal']
+    for host in hosts_to_try:
+        try:
+            response = requests.get(f"http://{host}:11434/api/tags", timeout=2)
+            if response.status_code == 200:
+                print(f"[Ollama] Found working host: {host}")
+                return host
+        except:
+            continue
+    
+    # Default fallback
+    return '172.17.0.1'
+
 def check_ollama_health() -> bool:
     """Check if Ollama is reachable."""
-    ollama_host = os.environ.get('OLLAMA_HOST', 'host.docker.internal')
+    ollama_host = get_ollama_host()
+    print(f"[DEBUG] Checking Ollama health at: {ollama_host}")
     try:
         response = requests.get(f"http://{ollama_host}:11434/api/tags", timeout=5)
+        print(f"[DEBUG] Ollama health response: {response.status_code}")
         return response.status_code == 200
-    except:
+    except Exception as e:
+        print(f"[Ollama] Health check failed for {ollama_host}: {e}")
         return False
 
 
 def query_ollama_rag(text: str, prompt: str) -> str:
     """Query Ollama RAG running on localhost:11434."""
-    # Use host.docker.internal when running in Docker, localhost for local dev
-    ollama_host = os.environ.get('OLLAMA_HOST', 'host.docker.internal')
+    ollama_host = get_ollama_host()
     ollama_url = f"http://{ollama_host}:11434/api/generate"
     
     # First check if Ollama is healthy
@@ -632,13 +664,12 @@ Provide a detailed response based on the context above:""",
         raise HTTPException(status_code=500, detail=f"RAG processing failed: {str(e)}")
 
 
-@router.post("/schemes/extract-from-pdf", response_model=SchemeExtractResponse)
-async def extract_scheme_from_pdf(
+@router.post("/schemes/upload-pdf", response_model=PDFUploadResponse)
+async def upload_pdf(
     file: UploadFile = File(...),
-    admin: AdminUser = Depends(require_role("super_admin", "content_admin")),
-    db: Session = Depends(get_db)
+    admin: AdminUser = Depends(require_role("super_admin", "content_admin"))
 ):
-    """Upload PDF and extract scheme information using RAG."""
+    """Upload PDF and store temporarily. Returns file_id for later processing."""
     # Validate file type
     if not file.content_type or not file.content_type.endswith("pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
@@ -649,6 +680,38 @@ async def extract_scheme_from_pdf(
     
     if len(contents) > max_size:
         raise HTTPException(status_code=400, detail="File too large. Maximum size: 10MB")
+    
+    # Generate unique file ID and store
+    import uuid
+    file_id = str(uuid.uuid4())
+    temp_pdf_storage[file_id] = {
+        "content": contents,
+        "filename": file.filename,
+        "size": len(contents)
+    }
+    
+    return PDFUploadResponse(
+        file_id=file_id,
+        filename=file.filename,
+        size=len(contents),
+        message="PDF uploaded successfully. Ready for AI processing."
+    )
+
+
+@router.post("/schemes/extract-from-pdf", response_model=SchemeExtractResponse)
+async def extract_scheme_from_pdf(
+    file_id: str = Form(...),
+    admin: AdminUser = Depends(require_role("super_admin", "content_admin")),
+    db: Session = Depends(get_db)
+):
+    """Extract scheme information from uploaded PDF using RAG."""
+    # Check if file exists in temp storage
+    if file_id not in temp_pdf_storage:
+        raise HTTPException(status_code=404, detail="File not found. Please upload the PDF first.")
+    
+    # Get file content from temp storage
+    file_data = temp_pdf_storage[file_id]
+    contents = file_data["content"]
     
     # Extract text from PDF
     pdf_text = extract_text_from_pdf(contents)
