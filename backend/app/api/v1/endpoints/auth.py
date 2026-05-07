@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 import bcrypt
 import re
 import random
+import structlog
 
 from app.config.database import get_db
 from app.config.settings import get_settings
@@ -17,6 +18,10 @@ from app.models.admin import AdminUser
 from app.models.notification import OTP
 from app.services.jwt_service import JWTService
 from app.services.otp_service import OTPService
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+logger = structlog.get_logger()
 
 router = APIRouter()
 settings = get_settings()
@@ -82,24 +87,55 @@ async def request_otp(
     x_forwarded_for: Optional[str] = Header(None)
 ):
     """Request OTP for mobile verification."""
-    # Check rate limits
-    recent_requests = otp_service.count_recent_requests(db, request.mobile)
-    if recent_requests >= settings.OTP_MAX_REQUESTS_PER_HOUR:
-        raise HTTPException(status_code=429, detail="Too many OTP requests. Please try again later.")
+    # Check if user already exists before OTP
+    logger.info("checking_existing_user_before_otp", mobile=request.mobile, email=request.email if hasattr(request, 'email') else None)
+    
+    # For registration, check if user exists to avoid unnecessary OTP generation
+    if request.purpose == 'registration':
+        existing = db.query(User).filter(
+            (User.mobile == request.mobile) | 
+            (User.email == request.email if hasattr(request, 'email') and request.email else False)
+        ).first()
+        if existing:
+            logger.error("user_already_exists_before_otp", mobile=request.mobile, email=getattr(request, 'email', None))
+            raise HTTPException(
+                status_code=400, 
+                detail="User already exists with this mobile or email. Please login or use different credentials."
+            )
     
     # Generate and send OTP
     otp_code = otp_service.generate_otp()
     
+    # Log OTP for development purposes
+    logger.info("otp_generated", mobile=request.mobile, otp_code=otp_code, purpose=request.purpose)
+    
     # Save OTP to database
-    otp_record = OTP(
-        mobile=request.mobile,
-        otp_code=otp_code,
-        purpose=request.purpose,
-        expires_at=datetime.utcnow() + timedelta(minutes=settings.OTP_EXPIRE_MINUTES),
-        ip_address=x_forwarded_for,
-    )
-    db.add(otp_record)
-    db.commit()
+    logger.info("saving_otp_to_db", mobile=request.mobile, otp_code=otp_code, purpose=request.purpose)
+    
+    try:
+        otp_record = OTP(
+            mobile=request.mobile,
+            otp_code=otp_code,
+            purpose=request.purpose,
+            expires_at=datetime.utcnow() + timedelta(minutes=settings.OTP_EXPIRE_MINUTES),
+            ip_address=x_forwarded_for,
+        )
+        logger.info("otp_record_created", record=otp_record.__dict__)
+        
+        db.add(otp_record)
+        logger.info("otp_added_to_session")
+        
+        db.commit()
+        logger.info("otp_committed_to_db", record_id=otp_record.id)
+        
+        # Refresh to get the ID
+        db.refresh(otp_record)
+        logger.info("otp_refreshed", final_record=otp_record.__dict__)
+        
+    except Exception as e:
+        logger.error("otp_save_failed", error=str(e), mobile=request.mobile)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to save OTP")
     
     # TODO: Send actual SMS
     # For development, return OTP in response
@@ -124,37 +160,108 @@ async def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
 @router.post("/register", response_model=TokenResponse)
 async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     """Register a new patient."""
+    # Log incoming request data for debugging
+    logger.info("register_request_start", 
+                mobile=request.mobile, 
+                name=request.name, 
+                email=request.email,
+                date_of_birth=request.date_of_birth,
+                gender=request.gender,
+                state=request.state,
+                district=request.district,
+                pin_code=request.pin_code,
+                otp=request.otp,
+                password_length=len(request.password) if request.password else 0
+    )
+    
     # Verify OTP first
     is_valid = otp_service.verify_otp(db, request.mobile, request.otp)
     if not is_valid:
+        logger.error("otp_verification_failed", mobile=request.mobile)
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
     
+    logger.info("otp_verified_successfully", mobile=request.mobile)
+    
     # Check if user exists
+    logger.info("checking_existing_user", mobile=request.mobile, email=request.email)
     existing = db.query(User).filter(
         (User.mobile == request.mobile) | (User.email == request.email)
     ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="User already exists with this mobile or email")
+        logger.error("user_already_exists", mobile=request.mobile, email=request.email)
+        # Instead of raising error, suggest login
+        raise HTTPException(
+            status_code=409, 
+            detail="User already exists. Please login instead.",
+            headers={"X-Error-Code": "USER_EXISTS"}
+        )
+    
+    logger.info("creating_new_user", mobile=request.mobile)
     
     # Hash password
-    hashed_password = bcrypt.hashpw(request.password.encode(), bcrypt.gensalt()).decode()
+    try:
+        hashed_password = bcrypt.hashpw(request.password.encode(), bcrypt.gensalt()).decode()
+        logger.info("password_hashed_successfully")
+    except Exception as e:
+        logger.error("password_hashing_failed", error=str(e))
+        raise HTTPException(status_code=500, detail="Password processing failed")
+    
+    # Parse date of birth
+    try:
+        date_of_birth = datetime.strptime(request.date_of_birth, "%Y-%m-%d").date()
+        logger.info("date_parsed_successfully", date_of_birth=str(date_of_birth))
+    except Exception as e:
+        logger.error("date_parsing_failed", date_of_birth=request.date_of_birth, error=str(e))
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     
     # Create user
-    user = User(
-        name=request.name,
-        email=request.email,
-        mobile=request.mobile,
-        date_of_birth=datetime.strptime(request.date_of_birth, "%Y-%m-%d").date(),
-        gender=request.gender,
-        state=request.state,
-        district=request.district,
-        pin_code=request.pin_code,
-        hashed_password=hashed_password,
-        is_verified=True,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    logger.info("starting_user_creation", data={
+        "name": request.name,
+        "email": request.email, 
+        "mobile": request.mobile,
+        "date_of_birth": str(date_of_birth),
+        "gender": request.gender,
+        "state": request.state,
+        "district": request.district,
+        "pin_code": request.pin_code
+    })
+    
+    try:
+        user = User(
+            name=request.name,
+            email=request.email,
+            mobile=request.mobile,
+            date_of_birth=date_of_birth,
+            gender=request.gender,
+            state=request.state,
+            district=request.district,
+            pin_code=request.pin_code,
+            hashed_password=hashed_password,
+            is_verified=True,
+        )
+        logger.info("user_object_created", user_object=user.__dict__)
+        
+        db.add(user)
+        logger.info("user_added_to_session")
+        
+        db.commit()
+        logger.info("user_committed_to_db", user_id=user.id if hasattr(user, 'id') else 'unknown')
+        
+        db.refresh(user)
+        logger.info("user_refreshed", final_user=user.__dict__)
+        
+        # Double-check by querying the database
+        check_user = db.query(User).filter(User.mobile == request.mobile).first()
+        logger.info("user_verification_check", found=check_user is not None, user_id=check_user.id if check_user else None)
+        
+    except Exception as e:
+        logger.error("user_creation_failed", error=str(e), rollback=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="User creation failed")
+    except Exception as e:
+        logger.error("user_creation_failed", error=str(e), rollback=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="User creation failed")
     
     # Generate tokens
     access_token, refresh_token = jwt_service.create_tokens(user.id, "patient")

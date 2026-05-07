@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 import structlog
 import time
 
@@ -60,6 +61,21 @@ def create_application() -> FastAPI:
     app.include_router(api_router, prefix="/api/v1")
     
     # Exception handlers
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        logger.error("validation_error", 
+                    details=exc.errors(), 
+                    body=exc.body if hasattr(exc, 'body') else None,
+                    path=request.url.path)
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "Validation failed", 
+                "details": exc.errors(),
+                "body": exc.body if hasattr(exc, 'body') else None
+            }
+        )
+    
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         logger.error("unhandled_exception", error=str(exc), path=request.url.path)
@@ -88,6 +104,7 @@ async def shutdown_event():
 
 
 @app.get("/health")
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "version": "1.0.0"}

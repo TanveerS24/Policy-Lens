@@ -23,11 +23,11 @@ class Settings(BaseSettings):
     # JWT
     JWT_SECRET_KEY: str = Field(default="jwt-secret-change-me")
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=30)
     
     # CORS
-    CORS_ORIGINS: List[str] = Field(default=["http://localhost:3000", "http://localhost:5173"])
+    CORS_ORIGINS: List[str] = Field(default=["http://localhost:3000", "http://localhost:5173", "http://localhost:8081", "http://127.0.0.1:8081", "exp://localhost:8081"])
     ALLOWED_HOSTS: List[str] = Field(default=["*"])
     
     # File Upload
@@ -46,13 +46,13 @@ class Settings(BaseSettings):
     # SMS/OTP
     SMS_API_KEY: str = Field(default="")
     SMS_PROVIDER: str = Field(default="")
-    OTP_EXPIRE_MINUTES: int = 10
-    OTP_MAX_ATTEMPTS: int = 3
-    OTP_MAX_REQUESTS_PER_HOUR: int = 5
+    OTP_EXPIRE_MINUTES: int = Field(default=10)
+    OTP_MAX_ATTEMPTS: int = Field(default=3)
+    OTP_MAX_REQUESTS_PER_HOUR: int = Field(default=5)
     
     # Security
-    MAX_LOGIN_ATTEMPTS: int = 5
-    LOCKOUT_DURATION_MINUTES: int = 30
+    MAX_LOGIN_ATTEMPTS: int = Field(default=5)
+    LOCKOUT_DURATION_MINUTES: int = Field(default=30)
     
     class Config:
         env_file = ".env"
@@ -63,3 +63,5 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()
+
+
