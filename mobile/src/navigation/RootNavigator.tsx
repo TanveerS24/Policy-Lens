@@ -15,7 +15,7 @@ export type RootStackParamList = {
   Splash: undefined;
   Login: undefined;
   Register: undefined;
-  OTPVerification: { mobile: string; purpose: string; nextScreen: string };
+  OTPVerification: { mobile: string; purpose: string; nextScreen: string; userData?: any };
   Main: undefined;
 };
 

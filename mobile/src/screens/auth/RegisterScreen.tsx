@@ -7,7 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
-import { Text, TextInput, Snackbar, Menu } from 'react-native-paper';
+import { Text, TextInput, Snackbar, Menu, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -16,6 +16,7 @@ import { RootStackParamList } from '../../navigation/RootNavigator';
 import { RootState, AppDispatch } from '../../redux/store';
 import { requestOTP, clearError } from '../../redux/slices/authSlice';
 import { theme, currentColors } from '../../theme';
+import { useToast } from 'react-native-toast-notifications';
 
 type RegisterScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Register'>;
 
@@ -88,6 +89,7 @@ export const RegisterScreen: React.FC = () => {
   const navigation = useNavigation<RegisterScreenNavigationProp>();
   const dispatch = useDispatch<AppDispatch>();
   const { isLoading, error } = useSelector((state: RootState) => state.auth);
+  const toast = useToast();
   const [step, setStep] = useState(1);
 
   const [formData, setFormData] = useState({
@@ -104,6 +106,7 @@ export const RegisterScreen: React.FC = () => {
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showStateMenu, setShowStateMenu] = useState(false);
   const [showDistrictMenu, setShowDistrictMenu] = useState(false);
   const [showGenderMenu, setShowGenderMenu] = useState(false);
@@ -131,27 +134,87 @@ export const RegisterScreen: React.FC = () => {
     if (formData.pinCode.length !== 6) {
       return 'PIN code must be 6 digits';
     }
+    if (formData.password.length < 8) {
+      return 'Password must be at least 8 characters long';
+    }
+    if (!/[A-Z]/.test(formData.password)) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!/[a-z]/.test(formData.password)) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!/\d/.test(formData.password)) {
+      return 'Password must contain at least one digit';
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) {
+      return 'Password must contain at least one special character';
+    }
     return null;
   };
 
+  const handleNext = () => {
+    setStep(2);
+  };
+
+  const handlePrevious = () => {
+    setStep(1);
+  };
+
   const handleRegister = async () => {
+    console.log('Register button clicked');
+    console.log('Form data:', formData);
+    
     const error = validateForm();
+    console.log('Validation error:', error);
+    
     if (error) {
+      console.log('Validation failed:', error);
       dispatch(clearError());
-      setSnackbarVisible(true);
+      toast.show(error, {
+        type: 'danger',
+        placement: 'top',
+      });
       return;
     }
 
+    console.log('Validation passed, requesting OTP...');
+    
     // Request OTP
     try {
-      await dispatch(requestOTP({ mobile: formData.mobile, purpose: 'registration' })).unwrap();
+      const result = await dispatch(requestOTP({ mobile: formData.mobile, purpose: 'registration' })).unwrap();
+      console.log('OTP requested successfully:', result);
+      
+      toast.show('OTP sent to your mobile number', {
+        type: 'success',
+        placement: 'top',
+      });
+      
       navigation.navigate('OTPVerification', {
         mobile: formData.mobile,
         purpose: 'registration',
         nextScreen: 'Main',
+        userData: formData,
       });
-    } catch (err) {
-      setSnackbarVisible(true);
+    } catch (err: any) {
+      console.error('OTP request failed:', err);
+      
+      // Handle specific user exists error
+      if (err?.response?.status === 400 && err?.response?.data?.detail?.includes('already exists')) {
+        toast.show('User already exists. Please login instead.', {
+          type: 'warning',
+          placement: 'top',
+          duration: 5000,
+        });
+        // Navigate to login after delay
+        setTimeout(() => {
+          navigation.navigate('Login');
+        }, 3000);
+      } else {
+        toast.show(err?.response?.data?.detail || err?.message || 'Failed to send OTP. Please try again.', {
+          type: 'danger',
+          placement: 'top',
+        });
+      }
     }
   };
 
@@ -186,6 +249,8 @@ export const RegisterScreen: React.FC = () => {
             {/* Glassmorphism Card */}
             <View style={styles.card}>
               <View style={styles.form}>
+                {step === 1 && (
+                  <>
             <TextInput
               label="Full Name *"
               value={formData.name}
@@ -214,101 +279,129 @@ export const RegisterScreen: React.FC = () => {
             />
 
             <TextInput
-              label="Date of Birth (YYYY-MM-DD) *"
+              label="Date of Birth (DD-MM-YYYY) *"
               value={formData.dateOfBirth}
               onChangeText={(text) => updateForm('dateOfBirth', text)}
               mode="outlined"
-              placeholder="1990-01-01"
+              placeholder="01-01-1990"
               style={styles.input}
             />
 
-            <Menu
-              visible={showGenderMenu}
-              onDismiss={() => setShowGenderMenu(false)}
-              anchor={
-                <TouchableOpacity onPress={() => setShowGenderMenu(true)} activeOpacity={0.7}>
-                  <TextInput
-                    label="Gender *"
-                    value={formData.gender ? formData.gender.charAt(0).toUpperCase() + formData.gender.slice(1) : ''}
-                    editable={false}
-                    mode="outlined"
-                    style={styles.input}
-                    right={<TextInput.Icon icon="menu-down" />}
-                    pointerEvents="none"
-                  />
-                </TouchableOpacity>
-              }
-            >
-              {GENDERS.map((gender) => (
-                <Menu.Item
-                  key={gender}
-                  onPress={() => {
-                    updateForm('gender', gender);
-                    setShowGenderMenu(false);
-                  }}
-                  title={gender.charAt(0).toUpperCase() + gender.slice(1)}
+            <View style={styles.dropdownContainer}>
+              <TouchableOpacity onPress={() => setShowGenderMenu(!showGenderMenu)} activeOpacity={0.7}>
+                <TextInput
+                  label="Gender *"
+                  value={formData.gender ? formData.gender.charAt(0).toUpperCase() + formData.gender.slice(1) : ''}
+                  editable={false}
+                  mode="outlined"
+                  style={styles.input}
+                  right={<TextInput.Icon icon={showGenderMenu ? "menu-up" : "menu-down"} />}
+                  pointerEvents="none"
                 />
-              ))}
-            </Menu>
+              </TouchableOpacity>
+              {showGenderMenu && (
+                <View style={styles.customDropdown}>
+                  <ScrollView style={styles.dropdownScrollContent} nestedScrollEnabled={true}>
+                    {GENDERS.map((gender) => (
+                      <TouchableOpacity
+                        key={gender}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          updateForm('gender', gender);
+                          setShowGenderMenu(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownItemText}>{gender.charAt(0).toUpperCase() + gender.slice(1)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
 
-            <Menu
-              visible={showStateMenu}
-              onDismiss={() => setShowStateMenu(false)}
-              anchor={
-                <TouchableOpacity onPress={() => setShowStateMenu(true)} activeOpacity={0.7}>
-                  <TextInput
-                    label="State *"
-                    value={formData.state}
-                    editable={false}
-                    mode="outlined"
-                    style={styles.input}
-                    right={<TextInput.Icon icon="menu-down" />}
-                    pointerEvents="none"
-                  />
-                </TouchableOpacity>
-              }
+            <TouchableOpacity
+              style={[
+                styles.continueButton,
+                styles.buttonGradient,
+                (!formData.name || !formData.mobile || !formData.dateOfBirth || !formData.gender) && styles.continueButtonDisabled,
+              ]}
+              onPress={handleNext}
+              disabled={!formData.name || !formData.mobile || !formData.dateOfBirth || !formData.gender}
             >
-              {INDIAN_STATES.map((state) => (
-                <Menu.Item
-                  key={state}
-                  onPress={() => handleStateSelect(state)}
-                  title={state}
-                />
-              ))}
-            </Menu>
+              <Text style={styles.buttonText}>Next</Text>
+            </TouchableOpacity>
+                  </>
+                )}
 
-            <Menu
-              visible={showDistrictMenu}
-              onDismiss={() => setShowDistrictMenu(false)}
-              anchor={
-                <TouchableOpacity 
-                  onPress={() => formData.state && setShowDistrictMenu(true)} 
-                  activeOpacity={0.7}
-                  disabled={!formData.state}
-                >
-                  <TextInput
-                    label="District *"
-                    value={formData.district}
-                    editable={false}
-                    mode="outlined"
-                    style={[styles.input, !formData.state && styles.inputDisabled]}
-                    right={<TextInput.Icon icon={formData.state ? "menu-down" : "lock"} />}
-                    pointerEvents="none"
-                  />
-                </TouchableOpacity>
-              }
-            >
-              {availableDistricts.map((district) => (
-                <Menu.Item
-                  key={district}
-                  onPress={() => {
-                    updateForm('district', district);
-                    setShowDistrictMenu(false);
-                  }}
-                  title={district}
+                {step === 2 && (
+                  <>
+            <View style={styles.dropdownContainer}>
+              <TouchableOpacity onPress={() => setShowStateMenu(!showStateMenu)} activeOpacity={0.7}>
+                <TextInput
+                  label="State *"
+                  value={formData.state}
+                  editable={false}
+                  mode="outlined"
+                  style={styles.input}
+                  right={<TextInput.Icon icon={showStateMenu ? "menu-up" : "menu-down"} />}
+                  pointerEvents="none"
                 />
-              ))}
-            </Menu>
+              </TouchableOpacity>
+              {showStateMenu && (
+                <View style={styles.customDropdown}>
+                  <ScrollView style={styles.dropdownScrollContent} nestedScrollEnabled={true}>
+                    {INDIAN_STATES.map((state) => (
+                      <TouchableOpacity
+                        key={state}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          handleStateSelect(state);
+                          setShowStateMenu(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownItemText}>{state}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.dropdownContainer}>
+              <TouchableOpacity 
+                onPress={() => formData.state && setShowDistrictMenu(!showDistrictMenu)} 
+                activeOpacity={0.7}
+                disabled={!formData.state}
+              >
+                <TextInput
+                  label="District *"
+                  value={formData.district}
+                  editable={false}
+                  mode="outlined"
+                  style={[styles.input, !formData.state && styles.inputDisabled]}
+                  right={<TextInput.Icon icon={formData.state ? (showDistrictMenu ? "menu-up" : "menu-down") : "lock"} />}
+                  pointerEvents="none"
+                />
+              </TouchableOpacity>
+              {showDistrictMenu && formData.state && (
+                <View style={styles.customDropdown}>
+                  <ScrollView style={styles.dropdownScrollContent} nestedScrollEnabled={true}>
+                    {availableDistricts.map((district) => (
+                      <TouchableOpacity
+                        key={district}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          updateForm('district', district);
+                          setShowDistrictMenu(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownItemText}>{district}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
 
             <TextInput
               label="PIN Code *"
@@ -339,9 +432,25 @@ export const RegisterScreen: React.FC = () => {
               value={formData.confirmPassword}
               onChangeText={(text) => updateForm('confirmPassword', text)}
               mode="outlined"
-              secureTextEntry={!showPassword}
+              secureTextEntry={!showConfirmPassword}
+              right={
+                <TextInput.Icon
+                  icon={showConfirmPassword ? 'eye-off' : 'eye'}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                />
+              }
               style={styles.input}
             />
+
+            <TouchableOpacity
+              style={[
+                styles.continueButton,
+                styles.buttonGradient,
+              ]}
+              onPress={handlePrevious}
+            >
+              <Text style={styles.buttonText}>Previous</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[
@@ -353,9 +462,11 @@ export const RegisterScreen: React.FC = () => {
               disabled={isLoading}
             >
               <Text style={styles.buttonText}>
-                {isLoading ? 'Please wait...' : 'Continue'}
+                {isLoading ? 'Please wait...' : 'Register'}
               </Text>
             </TouchableOpacity>
+                  </>
+                )}
 
             <View style={styles.loginContainer}>
               <Text style={styles.loginText}>Already have an account?</Text>
@@ -493,6 +604,64 @@ const styles = StyleSheet.create({
   },
   continueButtonDisabled: {
     opacity: 0.6,
+  },
+  previousButton: {
+    flex: 1,
+    marginRight: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: currentColors.buttonShadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 12,
+  },
+  dropdownMenu: {
+    maxHeight: 200,
+  },
+  dropdownContent: {
+    maxHeight: 180,
+  },
+  menuContent: {
+    maxHeight: 180,
+  },
+  dropdownContainer: {
+    position: 'relative',
+    zIndex: 1000,
+  },
+  customDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: currentColors.cardBg,
+    borderWidth: 1,
+    borderColor: currentColors.border,
+    borderRadius: 8,
+    maxHeight: 180,
+    elevation: 8,
+    shadowColor: currentColors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    zIndex: 1001,
+  },
+  dropdownScrollContent: {
+    maxHeight: 180,
+  },
+  dropdownItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: currentColors.border,
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    color: currentColors.textPrimary,
   },
   buttonGradient: {
     paddingVertical: 16,

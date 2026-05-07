@@ -1,10 +1,59 @@
+// Storage utility - uses SecureStore for native, AsyncStorage for web
 import axios from 'axios';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const isWeb = Platform.OS === 'web';
+
+const storage = {
+  async getItemAsync(key: string): Promise<string | null> {
+    try {
+      if (isWeb) {
+        return await AsyncStorage.getItem(key);
+      } else {
+        return await SecureStore.getItemAsync(key);
+      }
+    } catch (error) {
+      console.error(`Error getting ${key} from storage:`, error);
+      return null;
+    }
+  },
+  
+  async setItemAsync(key: string, value: string): Promise<void> {
+    try {
+      if (isWeb) {
+        await AsyncStorage.setItem(key, value);
+      } else {
+        await SecureStore.setItemAsync(key, value);
+      }
+    } catch (error) {
+      console.error(`Error setting ${key} in storage:`, error);
+      throw error;
+    }
+  },
+  
+  async deleteItemAsync(key: string): Promise<void> {
+    try {
+      if (isWeb) {
+        await AsyncStorage.removeItem(key);
+      } else {
+        await SecureStore.deleteItemAsync(key);
+      }
+    } catch (error) {
+      console.error(`Error deleting ${key} from storage:`, error);
+    }
+  }
+};
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
+// For development, use localhost if the production URL is not accessible
+const DEVELOPMENT_API_URL = 'http://localhost:8000/api/v1';
+const FINAL_API_URL = __DEV__ ? DEVELOPMENT_API_URL : API_BASE_URL;
+
 export const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: FINAL_API_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -14,9 +63,13 @@ export const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem('accessToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const token = await storage.getItemAsync('accessToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error('Error getting token from storage:', error);
     }
     return config;
   },
@@ -36,25 +89,29 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       
       try {
-        const refreshToken = await AsyncStorage.getItem('refreshToken');
+        const refreshToken = await storage.getItemAsync('refreshToken');
         
         if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {}, {
+          const response = await axios.post(`${FINAL_API_URL}/auth/refresh`, {}, {
             headers: { Authorization: `Bearer ${refreshToken}` },
           });
           
           const { access_token, refresh_token } = response.data;
           
-          await AsyncStorage.setItem('accessToken', access_token);
-          await AsyncStorage.setItem('refreshToken', refresh_token);
+          await storage.setItemAsync('accessToken', access_token);
+          await storage.setItemAsync('refreshToken', refresh_token);
           
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
           return api(originalRequest);
         }
       } catch (refreshError) {
         // Refresh failed, logout user
-        await AsyncStorage.removeItem('accessToken');
-        await AsyncStorage.removeItem('refreshToken');
+        try {
+          await storage.deleteItemAsync('accessToken');
+          await storage.deleteItemAsync('refreshToken');
+        } catch (error) {
+          console.error('Error clearing tokens from storage:', error);
+        }
         // Navigate to login (handled by auth context)
       }
     }
