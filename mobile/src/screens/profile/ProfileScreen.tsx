@@ -14,14 +14,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
-import { RootState } from '../../redux/store';
+import { RootState, AppDispatch } from '../../redux/store';
 import { logout } from '../../redux/slices/authSlice';
-import { theme } from '../../theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export const ProfileScreen: React.FC = () => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const navigation = useNavigation();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { theme: currentTheme, setTheme, isDark, colors } = useTheme();
+  const styles = createStyles(colors);
   const [logoutDialogVisible, setLogoutDialogVisible] = React.useState(false);
   const [deleteDialogVisible, setDeleteDialogVisible] = React.useState(false);
 
@@ -70,6 +72,9 @@ export const ProfileScreen: React.FC = () => {
       title: 'Change Password',
       onPress: () => {},
     },
+  ];
+
+  const legalItems = [
     {
       icon: 'download-outline',
       title: 'Download My Data',
@@ -100,7 +105,7 @@ export const ProfileScreen: React.FC = () => {
             size={80} 
             icon="account" 
             style={styles.avatar}
-            color={theme.colors.primary}
+            color={colors.primary}
           />
           <Text variant="headlineSmall" style={styles.name}>
             {user?.name || 'User'}
@@ -115,7 +120,7 @@ export const ProfileScreen: React.FC = () => {
           )}
         </View>
 
-        <Card style={styles.infoCard}>
+        <Card style={[styles.infoCard, { backgroundColor: colors.cardBg }]}>
           <Card.Content>
             <View style={styles.infoRow}>
               <Text variant="bodyMedium" style={styles.infoLabel}>Member Since</Text>
@@ -129,31 +134,96 @@ export const ProfileScreen: React.FC = () => {
           </Card.Content>
         </Card>
 
-        <List.Section>
-          <List.Subheader>Settings</List.Subheader>
-          {menuItems.slice(0, 5).map((item, index) => (
-            <List.Item
-              key={index}
-              title={item.title}
-              left={(props) => <List.Icon {...props} icon={item.icon} />}
-              right={(props) => <List.Icon {...props} icon="chevron-right" />}
-              onPress={item.onPress}
-            />
-          ))}
-        </List.Section>
+        <Card style={[styles.themeCard, { backgroundColor: colors.cardBg }]}>
+          <Card.Content>
+            <Text variant="titleMedium" style={[styles.themeTitle, { color: colors.textPrimary }]}>
+              Appearance
+            </Text>
+            <Text variant="bodySmall" style={[styles.themeSubtitle, { color: colors.textSecondary }]}>
+              Choose your preferred theme
+            </Text>
+            
+            <View style={styles.themeOptions}>
+              <Card
+                style={[
+                  styles.themeOption,
+                  currentTheme === 'light' && styles.themeOptionActive,
+                  { borderColor: currentTheme === 'light' ? colors.primary : colors.border }
+                ]}
+                onPress={() => setTheme('light')}
+              >
+                <Card.Content style={styles.themeOptionContent}>
+                  <View style={[styles.themePreview, { backgroundColor: '#F8F9FA' }]}>
+                    <View style={[styles.themePreviewDot, { backgroundColor: '#4A90E2' }]} />
+                    <View style={[styles.themePreviewDot, { backgroundColor: '#F4A261' }]} />
+                  </View>
+                  <Text style={[styles.themeOptionText, { color: colors.textPrimary }]}>Light</Text>
+                  <Text style={[styles.themeOptionSubtext, { color: colors.textMuted }]}>Silver & Peach Blue</Text>
+                  {currentTheme === 'light' && (
+                    <View style={[styles.checkmark, { backgroundColor: colors.primary }]}>
+                      <Text style={styles.checkmarkText}>✓</Text>
+                    </View>
+                  )}
+                </Card.Content>
+              </Card>
 
-        <List.Section>
-          <List.Subheader>Legal & Support</List.Subheader>
-          {menuItems.slice(5).map((item, index) => (
-            <List.Item
-              key={index}
-              title={item.title}
-              left={(props) => <List.Icon {...props} icon={item.icon} />}
-              right={(props) => <List.Icon {...props} icon="chevron-right" />}
-              onPress={item.onPress}
-            />
-          ))}
-        </List.Section>
+              <Card
+                style={[
+                  styles.themeOption,
+                  currentTheme === 'dark' && styles.themeOptionActive,
+                  { borderColor: currentTheme === 'dark' ? colors.primary : colors.border }
+                ]}
+                onPress={() => setTheme('dark')}
+              >
+                <Card.Content style={styles.themeOptionContent}>
+                  <View style={[styles.themePreview, { backgroundColor: '#272822' }]}>
+                    <View style={[styles.themePreviewDot, { backgroundColor: '#66D9EF' }]} />
+                    <View style={[styles.themePreviewDot, { backgroundColor: '#FD971F' }]} />
+                  </View>
+                  <Text style={[styles.themeOptionText, { color: colors.textPrimary }]}>Dark</Text>
+                  <Text style={[styles.themeOptionSubtext, { color: colors.textMuted }]}>Monokai Theme</Text>
+                  {currentTheme === 'dark' && (
+                    <View style={[styles.checkmark, { backgroundColor: colors.primary }]}>
+                      <Text style={styles.checkmarkText}>✓</Text>
+                    </View>
+                  )}
+                </Card.Content>
+              </Card>
+            </View>
+          </Card.Content>
+        </Card>
+
+        <View style={[styles.listSection, { backgroundColor: colors.cardBg }]}>
+          <List.Section>
+            <List.Subheader style={{ color: colors.textPrimary }}>Settings</List.Subheader>
+            {menuItems.map((item, index) => (
+              <List.Item
+                key={index}
+                title={item.title}
+                titleStyle={{ color: colors.textPrimary }}
+                left={(props) => <List.Icon {...props} icon={item.icon} color={colors.textSecondary} />}
+                right={(props) => <List.Icon {...props} icon="chevron-right" color={colors.textMuted} />}
+                onPress={item.onPress}
+              />
+            ))}
+          </List.Section>
+        </View>
+
+        <View style={[styles.listSection, { backgroundColor: colors.cardBg }]}>
+          <List.Section>
+            <List.Subheader style={{ color: colors.textPrimary }}>Legal & Support</List.Subheader>
+            {legalItems.map((item, index) => (
+              <List.Item
+                key={index}
+                title={item.title}
+                titleStyle={{ color: colors.textPrimary }}
+                left={(props) => <List.Icon {...props} icon={item.icon} color={colors.textSecondary} />}
+                right={(props) => <List.Icon {...props} icon="chevron-right" color={colors.textMuted} />}
+                onPress={item.onPress}
+              />
+            ))}
+          </List.Section>
+        </View>
 
         <View style={styles.actionButtons}>
           <Button 
@@ -168,7 +238,7 @@ export const ProfileScreen: React.FC = () => {
           <Button 
             mode="text" 
             onPress={handleDeleteAccount}
-            textColor={theme.colors.error}
+            textColor={colors.error}
             style={styles.deleteButton}
             icon="delete-forever"
           >
@@ -206,7 +276,7 @@ export const ProfileScreen: React.FC = () => {
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setDeleteDialogVisible(false)}>Cancel</Button>
-            <Button onPress={confirmDelete} textColor={theme.colors.error}>
+            <Button onPress={confirmDelete} textColor={colors.error}>
               Delete
             </Button>
           </Dialog.Actions>
@@ -216,10 +286,10 @@ export const ProfileScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   scrollContent: {
     paddingBottom: 24,
@@ -227,24 +297,24 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     padding: 24,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outlineVariant,
+    borderBottomColor: colors.border,
   },
   avatar: {
-    backgroundColor: theme.colors.primaryContainer,
+    backgroundColor: colors.secondary,
     marginBottom: 16,
   },
   name: {
     fontWeight: 'bold',
-    color: theme.colors.onSurface,
+    color: colors.textPrimary,
   },
   mobile: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   email: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   infoCard: {
@@ -258,10 +328,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   infoLabel: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
   },
   activeStatus: {
-    color: theme.colors.success,
+    color: colors.success,
     fontWeight: '600',
   },
   divider: {
@@ -272,17 +342,89 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   logoutButton: {
-    borderColor: theme.colors.outline,
+    borderColor: colors.border,
   },
   deleteButton: {
     marginTop: 8,
   },
   version: {
     textAlign: 'center',
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
     marginTop: 16,
   },
   confirmInput: {
     marginTop: 12,
+  },
+  listSection: {
+    margin: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  themeCard: {
+    margin: 16,
+    marginTop: 8,
+    elevation: 1,
+  },
+  themeTitle: {
+    fontWeight: 'bold',
+  },
+  themeSubtitle: {
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  themeOptions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  themeOption: {
+    flex: 1,
+    borderWidth: 2,
+    borderRadius: 12,
+  },
+  themeOptionActive: {
+    borderWidth: 2,
+  },
+  themeOptionContent: {
+    alignItems: 'center',
+    padding: 12,
+  },
+  themePreview: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
+  themePreviewDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  themeOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  themeOptionSubtext: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  checkmark: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmarkText: {
+    color: colors.cardBg,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

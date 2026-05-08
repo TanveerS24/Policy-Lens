@@ -20,13 +20,15 @@ import {
   bookmarkScheme, 
   removeBookmark,
 } from '../../redux/slices/schemesSlice';
-import { theme } from '../../theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const SCHEME_TYPES = ['All', 'National', 'State', 'Central', 'NGO'];
 const CATEGORIES = ['All', 'BPL', 'Women', 'Senior Citizens', 'Children', 'Disabled'];
 
 export const SchemesScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const { schemes, isLoading, pagination } = useSelector((state: RootState) => state.schemes);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,36 +80,94 @@ export const SchemesScreen: React.FC = () => {
       <Card.Content>
         <View style={styles.cardHeader}>
           <View style={styles.titleContainer}>
-            <Text variant="titleMedium" numberOfLines={2}>
+            <Text 
+              variant="titleMedium" 
+              numberOfLines={2}
+              style={{ 
+                color: colors.textPrimary,
+                fontWeight: '600',
+                lineHeight: 22,
+                letterSpacing: 0.2
+              }}
+            >
               {scheme.name}
             </Text>
-            <Text variant="bodySmall" style={styles.ministryText}>
+            <Text 
+              variant="bodySmall" 
+              style={[styles.ministryText, { 
+                fontWeight: '500',
+                letterSpacing: 0.1
+              }]}
+            >
               {scheme.ministry || scheme.type}
             </Text>
           </View>
           <IconButton
             icon={scheme.is_bookmarked ? 'bookmark' : 'bookmark-outline'}
             size={24}
-            iconColor={scheme.is_bookmarked ? theme.colors.primary : theme.colors.onSurfaceVariant}
+            iconColor={scheme.is_bookmarked ? colors.primary : colors.textSecondary}
             onPress={() => handleBookmark(scheme)}
           />
         </View>
 
         <View style={styles.chipsContainer}>
-          <Chip compact style={styles.typeChip}>{scheme.type}</Chip>
+          <Chip 
+            compact 
+            style={styles.typeChip}
+            textStyle={{ 
+              fontSize: 11,
+              fontWeight: '500',
+              letterSpacing: 0.2
+            }}
+          >
+            {scheme.type}
+          </Chip>
           {scheme.target_categories.slice(0, 2).map((cat) => (
-            <Chip key={cat} compact style={styles.categoryChip}>{cat}</Chip>
+            <Chip 
+              key={cat} 
+              compact 
+              style={styles.categoryChip}
+              textStyle={{ 
+                fontSize: 11,
+                fontWeight: '500',
+                letterSpacing: 0.1
+              }}
+            >
+              {cat}
+            </Chip>
           ))}
         </View>
 
-        <Text variant="bodyMedium" numberOfLines={2} style={styles.description}>
+        <Text 
+          variant="bodyMedium" 
+          numberOfLines={2} 
+          style={[styles.description, { 
+            lineHeight: 20,
+            letterSpacing: 0.1,
+            fontWeight: '400'
+          }]}
+        >
           {scheme.short_description || scheme.description}
         </Text>
 
         {scheme.coverage_amount && (
           <View style={styles.coverageContainer}>
-            <Text variant="bodySmall" style={styles.coverageLabel}>Coverage:</Text>
-            <Text variant="bodyMedium" style={styles.coverageAmount}>
+            <Text 
+              variant="bodySmall" 
+              style={[styles.coverageLabel, { 
+                fontWeight: '500',
+                letterSpacing: 0.1
+              }]}
+            >
+              Coverage:
+            </Text>
+            <Text 
+              variant="bodyMedium" 
+              style={[styles.coverageAmount, { 
+                fontWeight: '700',
+                letterSpacing: 0.2
+              }]}
+            >
               ₹{scheme.coverage_amount.toLocaleString()}
             </Text>
           </View>
@@ -115,8 +175,23 @@ export const SchemesScreen: React.FC = () => {
 
         {scheme.services_covered.length > 0 && (
           <View style={styles.servicesContainer}>
-            <Text variant="bodySmall" style={styles.servicesLabel}>Services:</Text>
-            <Text variant="bodySmall" style={styles.servicesText}>
+            <Text 
+              variant="bodySmall" 
+              style={[styles.servicesLabel, { 
+                fontWeight: '500',
+                letterSpacing: 0.1
+              }]}
+            >
+              Services:
+            </Text>
+            <Text 
+              variant="bodySmall" 
+              style={[styles.servicesText, { 
+                lineHeight: 18,
+                letterSpacing: 0.1,
+                fontWeight: '400'
+              }]}
+            >
               {scheme.services_covered.slice(0, 3).join(', ')}
               {scheme.services_covered.length > 3 && '...'}
             </Text>
@@ -125,8 +200,29 @@ export const SchemesScreen: React.FC = () => {
       </Card.Content>
       
       <Card.Actions>
-        <Button>Check Eligibility</Button>
-        <Button mode="contained">View Details</Button>
+        <Button 
+          textColor={colors.primary}
+          style={{ 
+            borderRadius: 8
+          }}
+          labelStyle={{
+            fontWeight: '500'
+          }}
+        >
+          Check Eligibility
+        </Button>
+        <Button 
+          mode="contained" 
+          buttonColor={colors.primary}
+          style={{ 
+            borderRadius: 8
+          }}
+          labelStyle={{
+            fontWeight: '600'
+          }}
+        >
+          View Details
+        </Button>
       </Card.Actions>
     </Card>
   );
@@ -134,7 +230,7 @@ export const SchemesScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text variant="headlineSmall" style={styles.title}>Dental Schemes</Text>
+        <Text variant="headlineSmall" style={[styles.title, { color: colors.textPrimary }]}>Dental Schemes</Text>
         
         <Searchbar
           placeholder="Search schemes..."
@@ -151,7 +247,8 @@ export const SchemesScreen: React.FC = () => {
             anchor={
               <Chip 
                 onPress={() => setShowTypeMenu(true)}
-                style={styles.filterChip}
+                style={[styles.filterChip, { backgroundColor: selectedType !== 'All' ? `${colors.primary}20` : colors.inputBg }]}
+                textStyle={{ color: selectedType !== 'All' ? colors.primary : colors.textPrimary }}
                 selected={selectedType !== 'All'}
               >
                 Type: {selectedType}
@@ -167,6 +264,11 @@ export const SchemesScreen: React.FC = () => {
                   loadSchemes(1);
                 }}
                 title={type}
+                titleStyle={{ 
+                  color: colors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: '500'
+                }}
               />
             ))}
           </Menu>
@@ -177,7 +279,8 @@ export const SchemesScreen: React.FC = () => {
             anchor={
               <Chip 
                 onPress={() => setShowCategoryMenu(true)}
-                style={styles.filterChip}
+                style={[styles.filterChip, { backgroundColor: selectedCategory !== 'All' ? `${colors.primary}20` : colors.inputBg }]}
+                textStyle={{ color: selectedCategory !== 'All' ? colors.primary : colors.textPrimary }}
                 selected={selectedCategory !== 'All'}
               >
                 Category: {selectedCategory}
@@ -193,6 +296,11 @@ export const SchemesScreen: React.FC = () => {
                   loadSchemes(1);
                 }}
                 title={cat}
+                titleStyle={{ 
+                  color: colors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: '500'
+                }}
               />
             ))}
           </Menu>
@@ -229,16 +337,16 @@ export const SchemesScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     padding: 16,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outlineVariant,
+    borderBottomColor: colors.border,
   },
   title: {
     fontWeight: 'bold',
@@ -246,6 +354,7 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     marginBottom: 12,
+    backgroundColor: colors.inputBg,
     elevation: 0,
   },
   filtersContainer: {
@@ -254,6 +363,8 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     height: 32,
+    backgroundColor: colors.inputBg,
+    borderColor: colors.border,
   },
   listContent: {
     padding: 16,
@@ -264,6 +375,9 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 12,
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.border,
     elevation: 1,
   },
   cardHeader: {
@@ -277,7 +391,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   ministryText: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   chipsContainer: {
@@ -287,14 +401,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   typeChip: {
-    backgroundColor: theme.colors.primaryContainer,
+    backgroundColor: `${colors.primary}20`,
   },
   categoryChip: {
-    backgroundColor: theme.colors.secondaryContainer,
+    backgroundColor: `${colors.secondary}30`,
   },
   description: {
     marginTop: 4,
-    color: theme.colors.onSurface,
+    color: colors.textPrimary,
   },
   coverageContainer: {
     flexDirection: 'row',
@@ -302,21 +416,21 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   coverageLabel: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
     marginRight: 4,
   },
   coverageAmount: {
-    color: theme.colors.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   servicesContainer: {
     marginTop: 8,
   },
   servicesLabel: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
   },
   servicesText: {
-    color: theme.colors.onSurface,
+    color: colors.textPrimary,
     marginTop: 2,
   },
   loadMoreIndicator: {
@@ -329,7 +443,7 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
   },
   emptySubtext: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
     marginTop: 8,
   },
 });

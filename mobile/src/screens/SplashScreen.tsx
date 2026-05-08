@@ -2,10 +2,12 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { currentColors } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { AppLogo } from '../components/AppLogo';
 
 export const SplashScreen: React.FC = () => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -20,7 +22,7 @@ export const SplashScreen: React.FC = () => {
 
         {/* Loading Indicator */}
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={currentColors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </View>
@@ -28,10 +30,10 @@ export const SplashScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: currentColors.background,
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -46,11 +48,11 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: currentColors.primary,
+    color: colors.primary,
   },
   subtitle: {
     fontSize: 20,
-    color: currentColors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 4,
     letterSpacing: 4,
   },
@@ -60,6 +62,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 14,
-    color: currentColors.textSecondary,
+    color: colors.textSecondary,
   },
 });

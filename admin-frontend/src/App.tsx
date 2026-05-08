@@ -1,4 +1,4 @@
-import React from 'react'
+import { FC } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import { Layout } from './components/Layout'
@@ -8,9 +8,10 @@ import { SchemesPage } from './pages/SchemesPage'
 import { AddSchemePage } from './pages/AddSchemePage'
 import { UsersPage } from './pages/UsersPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
+import { NotifyUsersPage } from './pages/NotifyUsersPage'
 import { SettingsPage } from './pages/SettingsPage'
 
-function App() {
+const App: FC = () => {
   const { isAuthenticated } = useAuthStore()
 
   if (!isAuthenticated) {
@@ -30,6 +31,7 @@ function App() {
         <Route path="/schemes/add" element={<AddSchemePage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/audit-logs" element={<AuditLogsPage />} />
+        <Route path="/notify-users" element={<NotifyUsersPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -57,6 +57,7 @@ class AdminUser(Base):
     # Relationships
     audit_logs = relationship("AuditLog", back_populates="admin")
     notifications = relationship("AdminNotification", back_populates="admin")
+    user_broadcasts = relationship("UserBroadcast", back_populates="admin")
 
 
 class AdminSession(Base):

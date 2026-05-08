@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Image } from 'react-native';
 import { Text, Card, Avatar, Chip, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -8,7 +8,7 @@ import { RootState, AppDispatch } from '../redux/store';
 import { fetchSchemes, Scheme } from '../redux/slices/schemesSlice';
 import { fetchBookmarks } from '../redux/slices/schemesSlice';
 import { fetchNotifications } from '../redux/slices/notificationsSlice';
-import { theme, currentColors } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { AppLogo } from '../components/AppLogo';
 
 export const HomeScreen: React.FC = () => {
@@ -18,6 +18,8 @@ export const HomeScreen: React.FC = () => {
   const { schemes, isLoading } = useSelector((state: RootState) => state.schemes);
   const { bookmarks } = useSelector((state: RootState) => state.schemes);
   const { unreadCount } = useSelector((state: RootState) => state.notifications);
+  const { colors, isDark } = useTheme();
+  const styles = createStyles(colors);
   const [refreshing, setRefreshing] = React.useState(false);
 
   useEffect(() => {
@@ -41,24 +43,24 @@ export const HomeScreen: React.FC = () => {
   const renderQuickActions = () => (
     <View style={styles.quickActions}>
       <TouchableOpacity
-        style={[styles.actionCard, { backgroundColor: currentColors.cardBg }]}
+        style={[styles.actionCard, { backgroundColor: colors.cardBg }]}
         onPress={() => navigation.navigate('Schemes' as never)}
       >
         <View style={styles.actionContent}>
-          <View style={[styles.actionIcon, { backgroundColor: `${currentColors.primary}20` }]}>
-            <Text style={styles.actionIconText}>🔍</Text>
+          <View style={[styles.actionIcon, { backgroundColor: `${colors.primary}20` }]}>
+            <Image source={require('../../assets/Search icon.png')} style={styles.actionIconImage} resizeMode="contain" />
           </View>
           <Text style={styles.actionText}>Browse Schemes</Text>
         </View>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.actionCard, { backgroundColor: currentColors.cardBg }]}
+        style={[styles.actionCard, { backgroundColor: colors.cardBg }]}
         onPress={() => navigation.navigate('Documents' as never)}
       >
         <View style={styles.actionContent}>
-          <View style={[styles.actionIcon, { backgroundColor: `${currentColors.primary}20` }]}>
-            <Text style={styles.actionIconText}>📄</Text>
+          <View style={[styles.actionIcon, { backgroundColor: `${colors.primary}20` }]}>
+            <Image source={require('../../assets/icons8-document-128.png')} style={styles.actionIconImage} resizeMode="contain" />
           </View>
           <Text style={styles.actionText}>Upload Policy</Text>
         </View>
@@ -76,7 +78,7 @@ export const HomeScreen: React.FC = () => {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator style={styles.loader} color={currentColors.primary} />
+        <ActivityIndicator style={styles.loader} color={colors.primary} />
       ) : (
         schemes.slice(0, 3).map((scheme: Scheme) => (
           <TouchableOpacity key={scheme.id} style={styles.schemeCard}>
@@ -87,8 +89,8 @@ export const HomeScreen: React.FC = () => {
                   {scheme.ministry || scheme.type}
                 </Text>
               </View>
-              <View style={[styles.typeBadge, { backgroundColor: `${currentColors.primary}20` }]}>
-                <Text style={[styles.typeText, { color: currentColors.primary }]}>
+              <View style={[styles.typeBadge, { backgroundColor: `${colors.primary}20` }]}>
+                <Text style={[styles.typeText, { color: colors.primary }]}>
                   {scheme.type}
                 </Text>
               </View>
@@ -99,18 +101,18 @@ export const HomeScreen: React.FC = () => {
             </Text>
 
             {scheme.coverage_amount && (
-              <Text style={[styles.coverage, { color: currentColors.primary }]}>
+              <Text style={[styles.coverage, { color: colors.primary }]}>
                 Coverage: ₹{scheme.coverage_amount.toLocaleString()}
               </Text>
             )}
 
             <View style={styles.cardActions}>
               <TouchableOpacity style={styles.secondaryButton}>
-                <Text style={[styles.secondaryButtonText, { color: currentColors.textSecondary }]}>
+                <Text style={[styles.secondaryButtonText, { color: colors.textSecondary }]}>
                   Check Eligibility
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: currentColors.primary }]}>
+              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary }]}>
                 <Text style={styles.primaryButtonText}>View Details</Text>
               </TouchableOpacity>
             </View>
@@ -135,7 +137,7 @@ export const HomeScreen: React.FC = () => {
                 {scheme.ministry || scheme.type}
               </Text>
             </View>
-            <Text style={[styles.bookmarkIcon, { color: currentColors.primary }]}>🔖</Text>
+            <Text style={[styles.bookmarkIcon, { color: colors.primary }]}>🔖</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -143,15 +145,15 @@ export const HomeScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: currentColors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={currentColors.primary}
-            colors={[currentColors.primary]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
@@ -168,12 +170,19 @@ export const HomeScreen: React.FC = () => {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.notificationBadge}>
-            <View style={[styles.notificationIcon, { backgroundColor: currentColors.cardBg }]}>
-              <Text style={styles.notificationEmoji}>🔔</Text>
+          <TouchableOpacity 
+            style={styles.notificationBadge}
+            onPress={() => navigation.navigate('Notifications' as never)}
+          >
+            <View style={[styles.notificationIcon, { backgroundColor: colors.cardBg }]}>
+              <Image 
+                source={require('../../assets/icons8-notification-50.png')} 
+                style={styles.notificationIconImage} 
+                resizeMode="contain"
+              />
             </View>
             {unreadCount > 0 && (
-              <View style={[styles.badge, { backgroundColor: currentColors.primary }]}>
+              <View style={[styles.badge, { backgroundColor: colors.primary }]}>
                 <Text style={styles.badgeText}>{unreadCount}</Text>
               </View>
             )}
@@ -188,7 +197,7 @@ export const HomeScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -212,11 +221,11 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: currentColors.textPrimary,
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 13,
-    color: currentColors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   notificationBadge: {
@@ -229,10 +238,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: currentColors.border,
+    borderColor: colors.border,
   },
-  notificationEmoji: {
-    fontSize: 20,
+  notificationIconImage: {
+    width: 24,
+    height: 24,
   },
   badge: {
     position: 'absolute',
@@ -245,7 +255,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: colors.cardBg,
     fontSize: 11,
     fontWeight: 'bold',
   },
@@ -259,8 +269,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: currentColors.border,
-    shadowColor: currentColors.shadow,
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -280,10 +290,14 @@ const styles = StyleSheet.create({
   actionIconText: {
     fontSize: 24,
   },
+  actionIconImage: {
+    width: 28,
+    height: 28,
+  },
   actionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: currentColors.textPrimary,
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   section: {
@@ -298,24 +312,24 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: currentColors.textPrimary,
+    color: colors.textPrimary,
   },
   viewAll: {
     fontSize: 14,
     fontWeight: '600',
-    color: currentColors.primary,
+    color: colors.primary,
   },
   loader: {
     marginVertical: 24,
   },
   schemeCard: {
-    backgroundColor: currentColors.cardBg,
+    backgroundColor: colors.cardBg,
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: currentColors.border,
-    shadowColor: currentColors.shadow,
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -334,7 +348,7 @@ const styles = StyleSheet.create({
   schemeName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: currentColors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   typeBadge: {
@@ -348,11 +362,11 @@ const styles = StyleSheet.create({
   },
   ministryText: {
     fontSize: 13,
-    color: currentColors.textSecondary,
+    color: colors.textSecondary,
   },
   description: {
     fontSize: 14,
-    color: currentColors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 20,
     marginBottom: 12,
   },
@@ -370,7 +384,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: currentColors.inputBg,
+    backgroundColor: colors.inputBg,
     alignItems: 'center',
   },
   secondaryButtonText: {
@@ -387,18 +401,18 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.cardBg,
   },
   bookmarkCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: currentColors.cardBg,
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     padding: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: currentColors.border,
+    borderColor: colors.border,
   },
   bookmarkContent: {
     flex: 1,

@@ -86,6 +86,7 @@ class Scheme(Base):
     versions = relationship("SchemeVersion", back_populates="scheme", order_by="desc(SchemeVersion.created_at)")
     bookmarks = relationship("SchemeBookmark", back_populates="scheme")
     eligibility_checks = relationship("EligibilityCheck", back_populates="scheme")
+    user_broadcasts = relationship("UserBroadcast", back_populates="scheme")
     
     def to_dict(self):
         """Convert scheme to dictionary."""

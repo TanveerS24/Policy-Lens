@@ -10,6 +10,7 @@ import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { OTPVerificationScreen } from '../screens/auth/OTPVerificationScreen';
 import { MainTabNavigator } from './MainTabNavigator';
+import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -17,6 +18,7 @@ export type RootStackParamList = {
   Register: undefined;
   OTPVerification: { mobile: string; purpose: string; nextScreen: string; userData?: any };
   Main: undefined;
+  Notifications: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -40,7 +42,10 @@ export const RootNavigator: React.FC = () => {
           </>
         ) : (
           // Main App Stack
-          <Stack.Screen name="Main" component={MainTabNavigator} />
+          <>
+            <Stack.Screen name="Main" component={MainTabNavigator} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

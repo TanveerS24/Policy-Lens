@@ -5,6 +5,7 @@ import {
   FileText, 
   Users, 
   ClipboardList, 
+  Bell,
   Settings, 
   LogOut,
   Menu,
@@ -23,6 +24,7 @@ const navigation = [
   { name: 'Schemes', href: '/schemes', icon: FileText },
   { name: 'Users', href: '/users', icon: Users },
   { name: 'Audit Logs', href: '/audit-logs', icon: ClipboardList },
+  { name: 'Notify Users', href: '/notify-users', icon: Bell },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 

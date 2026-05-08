@@ -15,42 +15,45 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { RootState, AppDispatch } from '../../redux/store';
 import { requestOTP, clearError } from '../../redux/slices/authSlice';
-import { theme, currentColors } from '../../theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useToast } from 'react-native-toast-notifications';
 
 type RegisterScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Register'>;
 
-const renderStepIndicator = (currentStep: number) => (
-  <View style={styles.stepIndicator}>
-    {[1, 2].map((step) => (
-      <View key={step} style={styles.stepRow}>
-        <View
-          style={[
-            styles.stepDot,
-            currentStep >= step && styles.stepDotActive,
-          ]}
-        >
-          <Text
-            style={[
-              styles.stepNumber,
-              currentStep >= step && styles.stepNumberActive,
-            ]}
-          >
-            {step}
-          </Text>
-        </View>
-        {step < 2 && (
+const renderStepIndicator = (currentStep: number, colors: any) => {
+  const styles = createStyles(colors);
+  return (
+    <View style={styles.stepIndicator}>
+      {[1, 2].map((step) => (
+        <View key={step} style={styles.stepRow}>
           <View
             style={[
-              styles.stepLine,
-              currentStep > step && styles.stepLineActive,
+              styles.stepDot,
+              currentStep >= step && styles.stepDotActive,
             ]}
-          />
-        )}
-      </View>
-    ))}
-  </View>
-);
+          >
+            <Text
+              style={[
+                styles.stepNumber,
+                currentStep >= step && styles.stepNumberActive,
+              ]}
+            >
+              {step}
+            </Text>
+          </View>
+          {step < 2 && (
+            <View
+              style={[
+                styles.stepLine,
+                currentStep > step && styles.stepLineActive,
+              ]}
+            />
+          )}
+        </View>
+      ))}
+    </View>
+  );
+};
 
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana',
@@ -88,6 +91,8 @@ const GENDERS = ['male', 'female', 'other'];
 export const RegisterScreen: React.FC = () => {
   const navigation = useNavigation<RegisterScreenNavigationProp>();
   const dispatch = useDispatch<AppDispatch>();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const { isLoading, error } = useSelector((state: RootState) => state.auth);
   const toast = useToast();
   const [step, setStep] = useState(1);
@@ -161,14 +166,9 @@ export const RegisterScreen: React.FC = () => {
   };
 
   const handleRegister = async () => {
-    console.log('Register button clicked');
-    console.log('Form data:', formData);
-    
     const error = validateForm();
-    console.log('Validation error:', error);
-    
+
     if (error) {
-      console.log('Validation failed:', error);
       dispatch(clearError());
       toast.show(error, {
         type: 'danger',
@@ -177,12 +177,9 @@ export const RegisterScreen: React.FC = () => {
       return;
     }
 
-    console.log('Validation passed, requesting OTP...');
-    
     // Request OTP
     try {
       const result = await dispatch(requestOTP({ mobile: formData.mobile, purpose: 'registration' })).unwrap();
-      console.log('OTP requested successfully:', result);
       
       toast.show('OTP sent to your mobile number', {
         type: 'success',
@@ -244,7 +241,7 @@ export const RegisterScreen: React.FC = () => {
             </View>
 
             {/* Step Indicator */}
-            {renderStepIndicator(step)}
+            {renderStepIndicator(step, colors)}
 
             {/* Glassmorphism Card */}
             <View style={styles.card}>
@@ -495,10 +492,10 @@ export const RegisterScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   gradient: {
     flex: 1,
-    backgroundColor: currentColors.background,
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -521,12 +518,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: currentColors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: currentColors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   stepIndicator: {
@@ -543,40 +540,40 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: currentColors.inputBg,
+    backgroundColor: colors.inputBg,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: currentColors.border,
+    borderColor: colors.border,
   },
   stepDotActive: {
-    backgroundColor: currentColors.primary,
-    borderColor: currentColors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   stepNumber: {
     fontSize: 14,
     fontWeight: '600',
-    color: currentColors.textSecondary,
+    color: colors.textSecondary,
   },
   stepNumberActive: {
-    color: '#FFFFFF',
+    color: colors.cardBg,
   },
   stepLine: {
     width: 40,
     height: 2,
-    backgroundColor: currentColors.border,
+    backgroundColor: colors.border,
     marginHorizontal: 8,
   },
   stepLineActive: {
-    backgroundColor: currentColors.primary,
+    backgroundColor: colors.primary,
   },
   card: {
-    backgroundColor: currentColors.cardBg,
+    backgroundColor: colors.cardBg,
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: currentColors.border,
-    shadowColor: currentColors.shadow,
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
     shadowRadius: 24,
@@ -587,7 +584,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   input: {
-    backgroundColor: currentColors.inputBg,
+    backgroundColor: colors.inputBg,
   },
   inputDisabled: {
     opacity: 0.5,
@@ -596,7 +593,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: currentColors.buttonShadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -610,7 +607,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: currentColors.buttonShadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -639,13 +636,13 @@ const styles = StyleSheet.create({
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: currentColors.cardBg,
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
-    borderColor: currentColors.border,
+    borderColor: colors.border,
     borderRadius: 8,
     maxHeight: 180,
     elevation: 8,
-    shadowColor: currentColors.shadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -657,19 +654,19 @@ const styles = StyleSheet.create({
   dropdownItem: {
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: currentColors.border,
+    borderBottomColor: colors.border,
   },
   dropdownItemText: {
     fontSize: 16,
-    color: currentColors.textPrimary,
+    color: colors.textPrimary,
   },
   buttonGradient: {
     paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: currentColors.primary,
+    backgroundColor: colors.primary,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: colors.cardBg,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -681,16 +678,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   loginText: {
-    color: currentColors.textSecondary,
+    color: colors.textSecondary,
     fontSize: 14,
   },
   loginLink: {
-    color: currentColors.primary,
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
   snackbar: {
-    backgroundColor: currentColors.cardBg,
+    backgroundColor: colors.cardBg,
     borderRadius: 12,
   },
 });

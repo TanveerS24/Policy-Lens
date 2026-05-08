@@ -22,10 +22,12 @@ import {
   fetchAISummary,
   Document,
 } from '../../redux/slices/documentsSlice';
-import { theme } from '../../theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export const DocumentsScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const { documents, isLoading, isUploading } = useSelector((state: RootState) => state.documents);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [summaryDialogVisible, setSummaryDialogVisible] = useState(false);
@@ -91,11 +93,11 @@ export const DocumentsScreen: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return theme.colors.primary;
-      case 'processing': return theme.colors.warning;
-      case 'pending': return theme.colors.onSurfaceVariant;
-      case 'failed': return theme.colors.error;
-      default: return theme.colors.onSurfaceVariant;
+      case 'completed': return colors.primary;
+      case 'processing': return colors.warning;
+      case 'pending': return colors.textSecondary;
+      case 'failed': return colors.error;
+      default: return colors.textSecondary;
     }
   };
 
@@ -120,7 +122,7 @@ export const DocumentsScreen: React.FC = () => {
           <IconButton
             icon="delete"
             size={20}
-            iconColor={theme.colors.error}
+            iconColor={colors.error}
             onPress={() => handleDelete(doc)}
           />
         </View>
@@ -135,7 +137,7 @@ export const DocumentsScreen: React.FC = () => {
           </Chip>
           
           {doc.summary_generated && (
-            <Chip compact style={styles.aiChip} icon="brain">
+            <Chip compact style={styles.aiChip} icon="brain" textStyle={{ color: colors.primary }}>
               AI Summary Ready
             </Chip>
           )}
@@ -151,6 +153,8 @@ export const DocumentsScreen: React.FC = () => {
           mode={doc.summary_generated ? "contained" : "outlined"}
           onPress={() => handleViewSummary(doc)}
           disabled={doc.status !== 'completed'}
+          textColor={doc.summary_generated ? colors.cardBg : colors.primary}
+          buttonColor={doc.summary_generated ? colors.primary : undefined}
         >
           {doc.summary_generated ? 'View AI Summary' : 'Processing...'}
         </Button>
@@ -161,7 +165,7 @@ export const DocumentsScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text variant="headlineSmall" style={styles.title}>My Documents</Text>
+        <Text variant="headlineSmall" style={[styles.title, { color: colors.textPrimary }]}>My Documents</Text>
         <Text variant="bodyMedium" style={styles.subtitle}>
           Upload policy documents for AI-powered analysis
         </Text>
@@ -247,22 +251,22 @@ export const DocumentsScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     padding: 16,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outlineVariant,
+    borderBottomColor: colors.border,
   },
   title: {
     fontWeight: 'bold',
   },
   subtitle: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   listContent: {
@@ -277,10 +281,13 @@ const styles = StyleSheet.create({
     margin: 16,
     right: 0,
     bottom: 0,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
   },
   card: {
     marginBottom: 12,
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.border,
     elevation: 1,
   },
   cardHeader: {
@@ -293,7 +300,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   fileMeta: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   statusContainer: {
@@ -306,10 +313,10 @@ const styles = StyleSheet.create({
   },
   aiChip: {
     height: 24,
-    backgroundColor: theme.colors.secondaryContainer,
+    backgroundColor: `${colors.secondary}30`,
   },
   uploadedAt: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
     marginTop: 8,
   },
   emptyContainer: {
@@ -319,7 +326,7 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
   },
   emptySubtext: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -327,7 +334,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    color: theme.colors.primary,
+    color: colors.primary,
     marginBottom: 4,
   },
   confidenceChip: {

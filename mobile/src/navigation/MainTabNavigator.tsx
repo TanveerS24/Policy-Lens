@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from 'react-native-paper';
+import { useTheme } from '../contexts/ThemeContext';
 
 // Screens
 import { HomeScreen } from '../screens/HomeScreen';
@@ -19,7 +19,7 @@ export type MainTabParamList = {
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export const MainTabNavigator: React.FC = () => {
-  const theme = useTheme();
+  const { colors, isDark } = useTheme();
 
   return (
     <Tab.Navigator
@@ -47,9 +47,12 @@ export const MainTabNavigator: React.FC = () => {
 
           return <MaterialCommunityIcons name={iconName as any} size={size} color={color} />;
         },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
           paddingBottom: 8,
           paddingTop: 8,
           height: 64,
@@ -57,6 +60,7 @@ export const MainTabNavigator: React.FC = () => {
         tabBarLabelStyle: {
           fontSize: 12,
           marginTop: 2,
+          color: colors.textPrimary,
         },
       })}
     >

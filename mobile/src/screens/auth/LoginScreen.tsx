@@ -15,7 +15,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { RootState, AppDispatch } from '../../redux/store';
 import { login, clearError } from '../../redux/slices/authSlice';
-import { theme, currentColors } from '../../theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { AppLogo } from '../../components/AppLogo';
 
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
@@ -23,6 +23,8 @@ type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'
 export const LoginScreen: React.FC = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const dispatch = useDispatch<AppDispatch>();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const { isLoading, error } = useSelector((state: RootState) => state.auth);
 
   const [mobileOrEmail, setMobileOrEmail] = useState('');
@@ -77,15 +79,15 @@ export const LoginScreen: React.FC = () => {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   style={styles.input}
-                  outlineColor={currentColors.border}
-                  activeOutlineColor={currentColors.primary}
-                  textColor={currentColors.textPrimary}
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.textPrimary}
                   theme={{
                     colors: {
-                      surface: currentColors.inputBg,
-                      onSurface: currentColors.textPrimary,
-                      onSurfaceVariant: currentColors.textSecondary,
-                      primary: currentColors.primary,
+                      surface: colors.inputBg,
+                      onSurface: colors.textPrimary,
+                      onSurfaceVariant: colors.textSecondary,
+                      primary: colors.primary,
                     },
                   }}
                 />
@@ -100,19 +102,19 @@ export const LoginScreen: React.FC = () => {
                     <TextInput.Icon
                       icon={showPassword ? 'eye-off' : 'eye'}
                       onPress={() => setShowPassword(!showPassword)}
-                      color={currentColors.textSecondary}
+                      color={colors.textSecondary}
                     />
                   }
                   style={styles.input}
-                  outlineColor={currentColors.border}
-                  activeOutlineColor={currentColors.primary}
-                  textColor={currentColors.textPrimary}
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.textPrimary}
                   theme={{
                     colors: {
-                      surface: currentColors.inputBg,
-                      onSurface: currentColors.textPrimary,
-                      onSurfaceVariant: currentColors.textSecondary,
-                      primary: currentColors.primary,
+                      surface: colors.inputBg,
+                      onSurface: colors.textPrimary,
+                      onSurfaceVariant: colors.textSecondary,
+                      primary: colors.primary,
                     },
                   }}
                 />
@@ -163,10 +165,10 @@ export const LoginScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   gradient: {
     flex: 1,
-    backgroundColor: currentColors.background,
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -186,21 +188,21 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: currentColors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: currentColors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   card: {
-    backgroundColor: currentColors.cardBg,
+    backgroundColor: colors.cardBg,
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: currentColors.border,
-    shadowColor: currentColors.shadow,
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
     shadowRadius: 24,
@@ -210,14 +212,14 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   input: {
-    backgroundColor: currentColors.inputBg,
+    backgroundColor: colors.inputBg,
   },
   forgotPassword: {
     alignSelf: 'flex-end',
     marginTop: -8,
   },
   forgotPasswordText: {
-    color: currentColors.primary,
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -225,7 +227,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: currentColors.buttonShadow,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -237,10 +239,10 @@ const styles = StyleSheet.create({
   buttonGradient: {
     paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: currentColors.primary,
+    backgroundColor: colors.primary,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: colors.cardBg,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -252,16 +254,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   registerText: {
-    color: currentColors.textSecondary,
+    color: colors.textSecondary,
     fontSize: 14,
   },
   registerLink: {
-    color: currentColors.primary,
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
   snackbar: {
-    backgroundColor: currentColors.cardBg,
+    backgroundColor: colors.cardBg,
     borderRadius: 12,
   },
 });

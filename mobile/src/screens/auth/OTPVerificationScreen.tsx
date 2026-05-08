@@ -7,8 +7,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { verifyOTP, clearError } from '../../redux/slices/authSlice';
-import { RootState } from '../../redux/store';
-import { theme } from '../../theme';
+import { RootState, AppDispatch } from '../../redux/store';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useToast } from 'react-native-toast-notifications';
 
 type OTPVerificationRouteProp = RouteProp<RootStackParamList, 'OTPVerification'>;
@@ -17,7 +17,9 @@ type OTPVerificationNavigationProp = StackNavigationProp<RootStackParamList, 'OT
 export const OTPVerificationScreen: React.FC = () => {
   const navigation = useNavigation<OTPVerificationNavigationProp>();
   const route = useRoute<OTPVerificationRouteProp>();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const { isLoading, error } = useSelector((state: RootState) => state.auth);
   const toast = useToast();
 
@@ -140,7 +142,7 @@ export const OTPVerificationScreen: React.FC = () => {
             {otp.map((digit, index) => (
               <RNTextInput
                 key={index}
-                ref={(ref) => (inputRefs.current[index] = ref)}
+                ref={(ref) => { inputRefs.current[index] = ref; }}
                 style={styles.otpInput}
                 value={digit}
                 onChangeText={(value) => handleOtpChange(index, value)}
@@ -192,10 +194,10 @@ export const OTPVerificationScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -210,12 +212,12 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   title: {
-    color: theme.colors.primary,
+    color: colors.primary,
     fontWeight: 'bold',
     marginBottom: 8,
   },
   subtitle: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   otpContainer: {
@@ -227,13 +229,13 @@ const styles = StyleSheet.create({
     width: 48,
     height: 56,
     borderWidth: 2,
-    borderColor: theme.colors.outline,
+    borderColor: colors.border,
     borderRadius: 8,
     textAlign: 'center',
     fontSize: 24,
     fontWeight: 'bold',
-    color: theme.colors.onSurface,
-    backgroundColor: theme.colors.surface,
+    color: colors.textPrimary,
+    backgroundColor: colors.surface,
   },
   verifyButton: {
     marginBottom: 16,
@@ -247,6 +249,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   resendText: {
-    color: theme.colors.onSurfaceVariant,
+    color: colors.textSecondary,
   },
 });
