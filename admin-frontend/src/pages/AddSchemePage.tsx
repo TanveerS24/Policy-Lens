@@ -223,10 +223,7 @@ export const AddSchemePage: React.FC = () => {
   }
 
   const handlePublish = () => {
-    if (!formData.name || !formData.code) {
-      alert('Please fill in the scheme name and code')
-      return
-    }
+    // Remove all validation - allow publishing with any data
     publishMutation.mutate(formData)
   }
 
@@ -387,60 +384,68 @@ export const AddSchemePage: React.FC = () => {
       {/* Extracted Content Editor */}
       {formData.name && (
         <>
-          {/* Basic Info */}
+          {/* Basic Info - Only show fields with values */}
           <div className="card p-6 mb-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Scheme Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  className="input-field"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Scheme Code *
-                </label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => handleInputChange('code', e.target.value)}
-                  className="input-field"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Type
-                </label>
-                <select
-                  value={formData.type}
-                  onChange={(e) => handleInputChange('type', e.target.value)}
-                  className="input-field"
-                >
-                  <option value="national">National</option>
-                  <option value="state">State</option>
-                  <option value="central">Central</option>
-                  <option value="ngo">NGO</option>
-                  <option value="private">Private</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ministry/Department
-                </label>
-                <input
-                  type="text"
-                  value={formData.ministry}
-                  onChange={(e) => handleInputChange('ministry', e.target.value)}
-                  className="input-field"
-                  placeholder="e.g., Ministry of Health"
-                />
-              </div>
+              {(formData.name || formData.name === '') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Scheme Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    className="input-field"
+                  />
+                </div>
+              )}
+              {(formData.code || formData.code === '') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Scheme Code
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.code}
+                    onChange={(e) => handleInputChange('code', e.target.value)}
+                    className="input-field"
+                  />
+                </div>
+              )}
+              {(formData.type || formData.type === '') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Type
+                  </label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => handleInputChange('type', e.target.value)}
+                    className="input-field"
+                  >
+                    <option value="national">National</option>
+                    <option value="state">State</option>
+                    <option value="central">Central</option>
+                    <option value="ngo">NGO</option>
+                    <option value="private">Private</option>
+                  </select>
+                </div>
+              )}
+              {(formData.ministry || formData.ministry === '') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ministry/Department
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.ministry}
+                    onChange={(e) => handleInputChange('ministry', e.target.value)}
+                    className="input-field"
+                    placeholder="e.g., Ministry of Health"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -535,72 +540,82 @@ export const AddSchemePage: React.FC = () => {
             )}
           </div>
 
-          {/* Additional Details */}
+          {/* Additional Details - Only show fields with values */}
           <div className="card p-6 mb-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Coverage Amount (₹)
-                </label>
-                <input
-                  type="number"
-                  value={formData.coverage_amount}
-                  onChange={(e) => handleInputChange('coverage_amount', e.target.value === '' ? '' : Number(e.target.value))}
-                  className="input-field"
-                  placeholder="e.g., 50000"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Min Age
-                </label>
-                <input
-                  type="number"
-                  value={formData.min_age}
-                  onChange={(e) => handleInputChange('min_age', e.target.value === '' ? '' : Number(e.target.value))}
-                  className="input-field"
-                  placeholder="e.g., 18"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Max Age
-                </label>
-                <input
-                  type="number"
-                  value={formData.max_age}
-                  onChange={(e) => handleInputChange('max_age', e.target.value === '' ? '' : Number(e.target.value))}
-                  className="input-field"
-                  placeholder="e.g., 60"
-                />
-              </div>
+              {(formData.coverage_amount !== '' || formData.coverage_amount) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Coverage Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.coverage_amount}
+                    onChange={(e) => handleInputChange('coverage_amount', e.target.value === '' ? '' : Number(e.target.value))}
+                    className="input-field"
+                    placeholder="e.g., 50000"
+                  />
+                </div>
+              )}
+              {(formData.min_age !== '' || formData.min_age) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Min Age
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.min_age}
+                    onChange={(e) => handleInputChange('min_age', e.target.value === '' ? '' : Number(e.target.value))}
+                    className="input-field"
+                    placeholder="e.g., 18"
+                  />
+                </div>
+              )}
+              {(formData.max_age !== '' || formData.max_age) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Max Age
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.max_age}
+                    onChange={(e) => handleInputChange('max_age', e.target.value === '' ? '' : Number(e.target.value))}
+                    className="input-field"
+                    placeholder="e.g., 60"
+                  />
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Website
-                </label>
-                <input
-                  type="url"
-                  value={formData.website}
-                  onChange={(e) => handleInputChange('website', e.target.value)}
-                  className="input-field"
-                  placeholder="https://..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Helpline
-                </label>
-                <input
-                  type="text"
-                  value={formData.helpline}
-                  onChange={(e) => handleInputChange('helpline', e.target.value)}
-                  className="input-field"
-                  placeholder="e.g., 1800-xxx-xxxx"
-                />
-              </div>
+              {(formData.website || formData.website === '') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.website}
+                    onChange={(e) => handleInputChange('website', e.target.value)}
+                    className="input-field"
+                    placeholder="https://..."
+                  />
+                </div>
+              )}
+              {(formData.helpline || formData.helpline === '') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Helpline
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.helpline}
+                    onChange={(e) => handleInputChange('helpline', e.target.value)}
+                    className="input-field"
+                    placeholder="e.g., 1800-xxx-xxxx"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -614,7 +629,7 @@ export const AddSchemePage: React.FC = () => {
             </button>
             <button
               onClick={handlePublish}
-              disabled={publishMutation.isPending || !formData.name || !formData.code}
+              disabled={publishMutation.isPending}
               className="btn-primary"
             >
               {publishMutation.isPending ? (

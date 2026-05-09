@@ -5,7 +5,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session 
 from sqlalchemy import func
 import bcrypt
 import os
@@ -23,10 +23,12 @@ from app.models.audit import AuditLog
 from app.models.eligibility import EligibilityCheck
 from app.models.document import Document
 from app.services.jwt_service import JWTService
+from app.services.pdf_service import PDFProcessingService
 
 router = APIRouter()
 settings = get_settings()
 jwt_service = JWTService()
+pdf_service = PDFProcessingService()
 security = HTTPBearer()
 
 # Temporary storage for uploaded PDFs (file_id -> file_content)
@@ -82,7 +84,6 @@ class PublishSchemeRequest(BaseModel):
     name: str
     code: str
     type: str
-    description: str
     eligibility_criteria: str
     about_scheme: str
     ministry: Optional[str] = None
@@ -651,7 +652,7 @@ Instruction: {prompt}
 Provide a detailed response based on the context above:""",
                 "stream": False
             },
-            timeout=60
+            timeout=120
         )
         response.raise_for_status()
         result = response.json()
@@ -704,7 +705,7 @@ async def extract_scheme_from_pdf(
     admin: AdminUser = Depends(require_role("super_admin", "content_admin")),
     db: Session = Depends(get_db)
 ):
-    """Extract scheme information from uploaded PDF using RAG."""
+    """Extract scheme information from uploaded PDF using enhanced processing."""
     # Check if file exists in temp storage
     if file_id not in temp_pdf_storage:
         raise HTTPException(status_code=404, detail="File not found. Please upload the PDF first.")
@@ -712,59 +713,37 @@ async def extract_scheme_from_pdf(
     # Get file content from temp storage
     file_data = temp_pdf_storage[file_id]
     contents = file_data["content"]
+    filename = file_data["filename"]
     
-    # Extract text from PDF
-    pdf_text = extract_text_from_pdf(contents)
+    # Extract text using enhanced PDF processing
+    extraction_result = pdf_service.extract_text_from_pdf(contents)
     
-    if len(pdf_text) < 100:
-        raise HTTPException(status_code=400, detail="PDF contains insufficient text for extraction")
+    if not extraction_result["text"] or len(extraction_result["text"].strip()) < 50:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"PDF contains insufficient text for extraction. Extraction method: {extraction_result['method']}"
+        )
     
-    # Extract eligibility criteria
-    eligibility_prompt = """Extract the eligibility criteria from this scheme document. 
-Focus on: age group, gender requirements, income criteria, category requirements (SC/ST/OBC/BPL/etc.), 
-residential requirements, and any other specific eligibility conditions.
-
-Provide a comprehensive but well-structured summary of who is eligible for this scheme."""
+    pdf_text = extraction_result["text"]
     
-    eligibility_criteria = query_ollama_rag(pdf_text, eligibility_prompt)
+    # Validate if content is related to dental schemes
+    validation_result = pdf_service.validate_dental_scheme_content(pdf_text)
     
-    # Extract about/summary
-    about_prompt = """Extract a concise summary of what this scheme is about. 
-Include: the purpose of the scheme, what benefits it provides, which department/ministry runs it, 
-and who can benefit from it. Keep it informative but concise (2-3 paragraphs max)."""
+    if not validation_result["is_dental_scheme"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"This document does not appear to be a dental scheme. Confidence: {validation_result['confidence_score']}. Reason: {validation_result['reasoning']}"
+        )
     
-    about_scheme = query_ollama_rag(pdf_text, about_prompt)
-    
-    # Extract basic info
-    info_prompt = """Extract the following information from the scheme document:
-1. Scheme name (full official name)
-2. A short code or acronym for the scheme (if not available, suggest one based on the name)
-3. Type of scheme: one of [state, national, central, ngo, private]
-
-Return ONLY a JSON object in this exact format:
-{"name": "...", "code": "...", "type": "..."}"""
-    
-    basic_info_text = query_ollama_rag(pdf_text, info_prompt)
-    
-    # Parse basic info (attempt to extract JSON)
-    import json
-    import re
-    try:
-        # Try to find JSON in the response
-        json_match = re.search(r'\{[^}]+\}', basic_info_text)
-        if json_match:
-            basic_info = json.loads(json_match.group())
-        else:
-            basic_info = {"name": file.filename.replace(".pdf", ""), "code": "NEW_SCHEME", "type": "national"}
-    except:
-        basic_info = {"name": file.filename.replace(".pdf", ""), "code": "NEW_SCHEME", "type": "national"}
+    # Extract detailed scheme information
+    scheme_details = pdf_service.extract_scheme_details(pdf_text)
     
     return {
-        "eligibility_criteria": eligibility_criteria,
-        "about_scheme": about_scheme,
-        "name": basic_info.get("name", file.filename.replace(".pdf", "")),
-        "code": basic_info.get("code", "NEW_SCHEME"),
-        "type": basic_info.get("type", "national")
+        "eligibility_criteria": scheme_details.get("eligibility_criteria", "Not specified"),
+        "about_scheme": scheme_details.get("benefits_covered", ["Not specified"])[0] if scheme_details.get("benefits_covered") else "Not specified",
+        "name": scheme_details.get("name", filename.replace(".pdf", "")),
+        "code": scheme_details.get("code", "NEW_SCHEME"),
+        "type": scheme_details.get("type", "national")
     }
 
 
@@ -775,7 +754,27 @@ async def regenerate_scheme_content(
     db: Session = Depends(get_db)
 ):
     """Regenerate scheme content from PDF using RAG."""
-    return await extract_scheme_from_pdf(file, admin, db)
+    # First upload the file to temp storage
+    if not file.content_type or not file.content_type.endswith("pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+    
+    # Read file content
+    contents = await file.read()
+    max_size = 10 * 1024 * 1024  # 10MB
+    
+    if len(contents) > max_size:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size: 10MB")
+    
+    # Generate unique file ID and store
+    file_id = str(uuid.uuid4())
+    temp_pdf_storage[file_id] = {
+        "content": contents,
+        "filename": file.filename,
+        "size": len(contents)
+    }
+    
+    # Now extract from the stored file
+    return await extract_scheme_from_pdf(file_id, admin, db)
 
 
 @router.post("/schemes/publish")
@@ -851,4 +850,61 @@ async def publish_scheme(
         "message": "Scheme published successfully",
         "scheme_id": scheme.id,
         "notifications_sent": len(all_users)
+    }
+
+
+class EligibilityCheckRequest(BaseModel):
+    scheme_id: int
+    user_profile: dict = Field(..., description="User profile data for eligibility check")
+
+
+@router.post("/schemes/check-eligibility")
+async def check_scheme_eligibility(
+    request: EligibilityCheckRequest,
+    admin: AdminUser = Depends(require_role("super_admin", "content_admin")),
+    db: Session = Depends(get_db)
+):
+    """Check eligibility for a user against a specific scheme."""
+    # Get scheme details
+    scheme = db.query(Scheme).filter(Scheme.id == request.scheme_id).first()
+    if not scheme:
+        raise HTTPException(status_code=404, detail="Scheme not found")
+    
+    # Prepare scheme details for eligibility check
+    scheme_details = {
+        "name": scheme.name,
+        "code": scheme.code,
+        "type": scheme.type,
+        "description": scheme.description,
+        "eligibility_criteria": getattr(scheme, 'eligibility_criteria', ''),
+        "min_age": scheme.min_age,
+        "max_age": scheme.max_age,
+        "required_documents": scheme.required_documents
+    }
+    
+    # Check eligibility using PDF service
+    eligibility_result = pdf_service.check_eligibility(scheme_details, request.user_profile)
+    
+    # Log the eligibility check
+    audit_log = AuditLog(
+        actor_type="admin",
+        actor_id=admin.id,
+        admin_id=admin.id,
+        action="eligibility_check",
+        resource_type="scheme",
+        resource_id=scheme.id,
+        success="success" if eligibility_result["is_eligible"] else "failed",
+        description=f"Eligibility check for scheme {scheme.name}: {eligibility_result['eligibility_score']}"
+    )
+    db.add(audit_log)
+    db.commit()
+    
+    return {
+        "scheme_id": scheme.id,
+        "scheme_name": scheme.name,
+        "is_eligible": eligibility_result["is_eligible"],
+        "eligibility_score": eligibility_result["eligibility_score"],
+        "matching_criteria": eligibility_result["matching_criteria"],
+        "missing_criteria": eligibility_result["missing_criteria"],
+        "recommendations": eligibility_result["recommendations"]
     }

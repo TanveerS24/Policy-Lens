@@ -29,6 +29,8 @@ requests==2.31.0
 
 # PDF Processing
 PyPDF2==3.0.1
+pdfplumber==0.10.3
+pytesseract==0.3.10
 
 # Utils
 python-dotenv==1.0.1
