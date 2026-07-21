@@ -48,9 +48,17 @@ const storage = {
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-// For development, use localhost if the production URL is not accessible
-const DEVELOPMENT_API_URL = 'http://localhost:8000/api/v1';
-const FINAL_API_URL = __DEV__ ? DEVELOPMENT_API_URL : API_BASE_URL;
+// For development, use the machine's LAN IP so physical devices can reach the backend.
+// localhost only works for web; Android emulators need 10.0.2.2; physical devices need the LAN IP.
+const getDevelopmentApiUrl = (): string => {
+  if (Platform.OS === 'web') {
+    return 'http://localhost:8000/api/v1';
+  }
+  // Use the machine's LAN IP for physical devices & emulators
+  return 'http://192.168.0.100:8000/api/v1';
+};
+
+const FINAL_API_URL = __DEV__ ? getDevelopmentApiUrl() : API_BASE_URL;
 
 export const api = axios.create({
   baseURL: FINAL_API_URL,

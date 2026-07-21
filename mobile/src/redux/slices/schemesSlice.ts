@@ -23,6 +23,25 @@ export interface Scheme {
   application_process?: string;
   processing_time?: string;
   is_bookmarked: boolean;
+  has_original_document?: boolean;
+  full_document_text?: string;
+}
+
+export interface EligibilityResult {
+  scheme_id: number;
+  scheme_name: string;
+  result: string;
+  confidence_score: number;
+  matched_conditions: string[];
+  failed_conditions: string[];
+  missing_conditions: string[];
+  explanation: string;
+  required_documents?: string[];
+  coverage_amount?: number;
+  services_covered?: string[];
+  application_process?: string;
+  helpline?: string;
+  website?: string;
 }
 
 interface SchemesState {
@@ -31,6 +50,8 @@ interface SchemesState {
   bookmarks: Scheme[];
   isLoading: boolean;
   error: string | null;
+  eligibilityResult: EligibilityResult | null;
+  eligibilityLoading: boolean;
   pagination: {
     page: number;
     perPage: number;
@@ -45,6 +66,8 @@ const initialState: SchemesState = {
   bookmarks: [],
   isLoading: false,
   error: null,
+  eligibilityResult: null,
+  eligibilityLoading: false,
   pagination: {
     page: 1,
     perPage: 20,
@@ -112,6 +135,9 @@ const schemesSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    clearEligibilityResult: (state) => {
+      state.eligibilityResult = null;
+    },
   },
   extraReducers: (builder) => {
     // Fetch schemes
@@ -153,8 +179,22 @@ const schemesSlice = createSlice({
       }
       state.bookmarks = state.bookmarks.filter(s => s.id !== action.payload);
     });
+
+    // Check eligibility
+    builder.addCase(checkEligibility.pending, (state) => {
+      state.eligibilityLoading = true;
+      state.eligibilityResult = null;
+    });
+    builder.addCase(checkEligibility.fulfilled, (state, action) => {
+      state.eligibilityLoading = false;
+      state.eligibilityResult = action.payload;
+    });
+    builder.addCase(checkEligibility.rejected, (state, action) => {
+      state.eligibilityLoading = false;
+      state.error = action.error.message || 'Eligibility check failed';
+    });
   },
 });
 
-export const { clearCurrentScheme, clearError } = schemesSlice.actions;
+export const { clearCurrentScheme, clearError, clearEligibilityResult } = schemesSlice.actions;
 export default schemesSlice.reducer;

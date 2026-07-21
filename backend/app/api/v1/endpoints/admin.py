@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session 
 from sqlalchemy import func
@@ -78,6 +79,7 @@ class SchemeExtractResponse(BaseModel):
     name: str
     code: str
     type: str
+    full_document_text: Optional[str] = None
 
 
 class PublishSchemeRequest(BaseModel):
@@ -96,6 +98,8 @@ class PublishSchemeRequest(BaseModel):
     required_documents: List[str] = []
     website: Optional[str] = None
     helpline: Optional[str] = None
+    file_id: Optional[str] = None
+    full_document_text: Optional[str] = None
 
 
 # Dependencies
@@ -743,7 +747,8 @@ async def extract_scheme_from_pdf(
         "about_scheme": scheme_details.get("benefits_covered", ["Not specified"])[0] if scheme_details.get("benefits_covered") else "Not specified",
         "name": scheme_details.get("name", filename.replace(".pdf", "")),
         "code": scheme_details.get("code", "NEW_SCHEME"),
-        "type": scheme_details.get("type", "national")
+        "type": scheme_details.get("type", "national"),
+        "full_document_text": pdf_text
     }
 
 
@@ -814,6 +819,37 @@ async def publish_scheme(
     db.commit()
     db.refresh(scheme)
     
+    # Save original PDF document if file_id is provided
+    if request.file_id and request.file_id in temp_pdf_storage:
+        file_data = temp_pdf_storage[request.file_id]
+        upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "uploads", "schemes", str(scheme.id))
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        pdf_path = os.path.join(upload_dir, file_data["filename"])
+        with open(pdf_path, "wb") as f:
+            f.write(file_data["content"])
+        
+        scheme.original_document_path = pdf_path
+        scheme.original_document_filename = file_data["filename"]
+        
+        # Extract and store full document text from the PDF
+        try:
+            extracted_text = extract_text_from_pdf(file_data["content"])
+            if extracted_text and extracted_text.strip():
+                scheme.full_document_text = extracted_text.strip()
+        except Exception as e:
+            print(f"[Warning] Failed to extract text from PDF for scheme {scheme.id}: {e}")
+        
+        db.commit()
+        
+        # Clean up temp storage
+        del temp_pdf_storage[request.file_id]
+    
+    # Also save full_document_text from request if provided (and not already extracted from PDF)
+    if request.full_document_text and not scheme.full_document_text:
+        scheme.full_document_text = request.full_document_text
+        db.commit()
+    
     # Log action
     audit_log = AuditLog(
         actor_type="admin",
@@ -851,6 +887,27 @@ async def publish_scheme(
         "scheme_id": scheme.id,
         "notifications_sent": len(all_users)
     }
+
+
+@router.get("/schemes/{scheme_id}/document")
+async def get_scheme_document(
+    scheme_id: int,
+    admin: AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get the original PDF document for a scheme."""
+    scheme = db.query(Scheme).filter(Scheme.id == scheme_id).first()
+    if not scheme:
+        raise HTTPException(status_code=404, detail="Scheme not found")
+    
+    if not scheme.original_document_path or not os.path.exists(scheme.original_document_path):
+        raise HTTPException(status_code=404, detail="No document available for this scheme")
+    
+    return FileResponse(
+        path=scheme.original_document_path,
+        filename=scheme.original_document_filename or "scheme_document.pdf",
+        media_type="application/pdf"
+    )
 
 
 class EligibilityCheckRequest(BaseModel):

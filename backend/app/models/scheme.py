@@ -75,6 +75,11 @@ class Scheme(Base):
     application_process = Column(Text, nullable=True)
     processing_time = Column(String(50), nullable=True)
     
+    # Original Document
+    original_document_path = Column(String(500), nullable=True)
+    original_document_filename = Column(String(255), nullable=True)
+    full_document_text = Column(Text, nullable=True)  # Full extracted text from the PDF
+    
     # Metadata
     is_deleted = Column(Boolean, default=False)
     deleted_at = Column(DateTime, nullable=True)
@@ -114,6 +119,8 @@ class Scheme(Base):
             "email": self.email,
             "application_process": self.application_process,
             "processing_time": self.processing_time,
+            "has_original_document": bool(self.original_document_path),
+            "full_document_text": self.full_document_text,
         }
 
 

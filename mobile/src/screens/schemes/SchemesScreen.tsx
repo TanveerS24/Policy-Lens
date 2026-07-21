@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   IconButton,
   Menu,
-  Divider,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -21,6 +20,10 @@ import {
   removeBookmark,
 } from '../../redux/slices/schemesSlice';
 import { useTheme } from '../../contexts/ThemeContext';
+import { EligibilityCheckModal } from '../../components/EligibilityCheckModal';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../../navigation/RootNavigator';
 
 const SCHEME_TYPES = ['All', 'National', 'State', 'Central', 'NGO'];
 const CATEGORIES = ['All', 'BPL', 'Women', 'Senior Citizens', 'Children', 'Disabled'];
@@ -29,6 +32,7 @@ export const SchemesScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { colors } = useTheme();
   const styles = createStyles(colors);
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { schemes, isLoading, pagination } = useSelector((state: RootState) => state.schemes);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,6 +42,8 @@ export const SchemesScreen: React.FC = () => {
   const [page, setPage] = useState(1);
   const [showTypeMenu, setShowTypeMenu] = useState(false);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [eligibilityModalVisible, setEligibilityModalVisible] = useState(false);
+  const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
 
   const loadSchemes = useCallback(async (pageNum: number = 1) => {
     const params: any = { page: pageNum };
@@ -208,6 +214,10 @@ export const SchemesScreen: React.FC = () => {
           labelStyle={{
             fontWeight: '500'
           }}
+          onPress={() => {
+            setSelectedScheme(scheme);
+            setEligibilityModalVisible(true);
+          }}
         >
           Check Eligibility
         </Button>
@@ -220,6 +230,7 @@ export const SchemesScreen: React.FC = () => {
           labelStyle={{
             fontWeight: '600'
           }}
+          onPress={() => navigation.navigate('SchemeDetail', { schemeId: scheme.id })}
         >
           View Details
         </Button>
@@ -331,6 +342,19 @@ export const SchemesScreen: React.FC = () => {
               </Text>
             </View>
           }
+        />
+      )}
+
+      {/* Eligibility Check Modal */}
+      {selectedScheme && (
+        <EligibilityCheckModal
+          visible={eligibilityModalVisible}
+          onDismiss={() => {
+            setEligibilityModalVisible(false);
+            setSelectedScheme(null);
+          }}
+          schemeId={selectedScheme.id}
+          schemeName={selectedScheme.name}
         />
       )}
     </SafeAreaView>

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Image } from 'react-native';
 import { Text, Card, Avatar, Chip, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { fetchBookmarks } from '../redux/slices/schemesSlice';
 import { fetchNotifications } from '../redux/slices/notificationsSlice';
 import { useTheme } from '../contexts/ThemeContext';
 import { AppLogo } from '../components/AppLogo';
+import { EligibilityCheckModal } from '../components/EligibilityCheckModal';
 
 export const HomeScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -21,6 +22,8 @@ export const HomeScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [eligibilityModalVisible, setEligibilityModalVisible] = useState(false);
+  const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
 
   useEffect(() => {
     loadData();
@@ -107,12 +110,21 @@ export const HomeScreen: React.FC = () => {
             )}
 
             <View style={styles.cardActions}>
-              <TouchableOpacity style={styles.secondaryButton}>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => {
+                  setSelectedScheme(scheme);
+                  setEligibilityModalVisible(true);
+                }}
+              >
                 <Text style={[styles.secondaryButtonText, { color: colors.textSecondary }]}>
                   Check Eligibility
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary }]}>
+              <TouchableOpacity
+                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                onPress={() => navigation.navigate('SchemeDetail' as never, { schemeId: scheme.id } as never)}
+              >
                 <Text style={styles.primaryButtonText}>View Details</Text>
               </TouchableOpacity>
             </View>
@@ -193,6 +205,19 @@ export const HomeScreen: React.FC = () => {
         {renderFeaturedSchemes()}
         {renderBookmarkedSchemes()}
       </ScrollView>
+
+      {/* Eligibility Check Modal */}
+      {selectedScheme && (
+        <EligibilityCheckModal
+          visible={eligibilityModalVisible}
+          onDismiss={() => {
+            setEligibilityModalVisible(false);
+            setSelectedScheme(null);
+          }}
+          schemeId={selectedScheme.id}
+          schemeName={selectedScheme.name}
+        />
+      )}
     </SafeAreaView>
   );
 };

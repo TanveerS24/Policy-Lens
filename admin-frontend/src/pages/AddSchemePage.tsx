@@ -13,6 +13,7 @@ interface ExtractedData {
   name: string
   code: string
   type: string
+  full_document_text?: string
 }
 
 interface SchemeFormData {
@@ -23,6 +24,7 @@ interface SchemeFormData {
   state: string
   eligibility_criteria: string
   about_scheme: string
+  full_document_text: string
   target_categories: string[]
   services_covered: string[]
   coverage_amount: number | ''
@@ -78,7 +80,7 @@ const regenerateFromPDF = async (file: File, token: string): Promise<ExtractedDa
   return response.data
 }
 
-const publishScheme = async (data: SchemeFormData, token: string): Promise<{ scheme_id: number; notifications_sent: number }> => {
+const publishScheme = async (data: SchemeFormData & { file_id?: string | null }, token: string): Promise<{ scheme_id: number; notifications_sent: number }> => {
   const response = await axios.post(`${API_URL}/admin/schemes/publish`, data, {
     headers: {
       'Authorization': `Bearer ${token}`
@@ -94,7 +96,7 @@ export const AddSchemePage: React.FC = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [uploadedFileId, setUploadedFileId] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
-  const [activeSection, setActiveSection] = useState<'eligibility' | 'about'>('eligibility')
+  const [activeSection, setActiveSection] = useState<'eligibility' | 'about' | 'full_document'>('eligibility')
   
   const [formData, setFormData] = useState<SchemeFormData>({
     name: '',
@@ -104,6 +106,7 @@ export const AddSchemePage: React.FC = () => {
     state: '',
     eligibility_criteria: '',
     about_scheme: '',
+    full_document_text: '',
     target_categories: [],
     services_covered: [],
     coverage_amount: '',
@@ -130,7 +133,8 @@ export const AddSchemePage: React.FC = () => {
         code: data.code,
         type: data.type,
         eligibility_criteria: data.eligibility_criteria,
-        about_scheme: data.about_scheme
+        about_scheme: data.about_scheme,
+        full_document_text: data.full_document_text || ''
       }))
       showToast('success', 'PDF processed successfully! AI extracted the scheme details.')
     },
@@ -151,7 +155,8 @@ export const AddSchemePage: React.FC = () => {
         code: data.code,
         type: data.type,
         eligibility_criteria: data.eligibility_criteria,
-        about_scheme: data.about_scheme
+        about_scheme: data.about_scheme,
+        full_document_text: data.full_document_text || ''
       }))
       showToast('success', 'Content regenerated successfully!')
     },
@@ -167,8 +172,8 @@ export const AddSchemePage: React.FC = () => {
     notifications_sent: number
   }
 
-  const publishMutation = useMutation<PublishResponse, Error, SchemeFormData>({
-    mutationFn: (data: SchemeFormData) => publishScheme(data, token || ''),
+  const publishMutation = useMutation<PublishResponse, Error, SchemeFormData & { file_id?: string | null }>({
+    mutationFn: (data: SchemeFormData & { file_id?: string | null }) => publishScheme(data, token || ''),
     onSuccess: (data: PublishResponse) => {
       setError(null)
       showToast('success', `Scheme published! ${data.notifications_sent} users notified.`)
@@ -224,7 +229,7 @@ export const AddSchemePage: React.FC = () => {
 
   const handlePublish = () => {
     // Remove all validation - allow publishing with any data
-    publishMutation.mutate(formData)
+    publishMutation.mutate({ ...formData, file_id: uploadedFileId })
   }
 
   const handleInputChange = (field: keyof SchemeFormData, value: string | number | string[]) => {
@@ -497,6 +502,16 @@ export const AddSchemePage: React.FC = () => {
               >
                 About the Scheme
               </button>
+              <button
+                onClick={() => setActiveSection('full_document')}
+                className={`pb-2 text-sm font-medium transition-colors ${
+                  activeSection === 'full_document'
+                    ? 'text-primary-600 border-b-2 border-primary-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Full Document
+              </button>
             </div>
 
             {/* Eligibility Section */}
@@ -535,6 +550,26 @@ export const AddSchemePage: React.FC = () => {
                 />
                 <p className="mt-2 text-xs text-gray-500">
                   This section describes the purpose, benefits, department/ministry, and target beneficiaries.
+                </p>
+              </div>
+            )}
+
+            {/* Full Document Section */}
+            {activeSection === 'full_document' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Document Text
+                  <span className="text-xs text-gray-500 ml-2">(Auto-extracted from PDF, editable)</span>
+                </label>
+                <textarea
+                  value={formData.full_document_text}
+                  onChange={(e) => handleInputChange('full_document_text', e.target.value)}
+                  rows={16}
+                  className="input-field font-mono text-sm"
+                  placeholder="Full document text will appear here after PDF processing..."
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  This is the complete text extracted from the uploaded PDF. It will be displayed in the mobile app for users to read the full document.
                 </p>
               </div>
             )}

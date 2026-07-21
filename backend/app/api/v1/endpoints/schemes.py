@@ -3,8 +3,10 @@
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.security import HTTPBearer
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+import os
 
 from app.config.database import get_db
 from app.models.scheme import Scheme, SchemeBookmark
@@ -268,3 +270,27 @@ async def get_my_bookmarks(
             for b in bookmarks
         ]
     }
+
+
+@router.get("/{scheme_id}/document")
+async def get_scheme_document(
+    scheme_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get the original PDF document for a scheme (public endpoint)."""
+    scheme = db.query(Scheme).filter(
+        Scheme.id == scheme_id,
+        Scheme.is_deleted == False
+    ).first()
+    
+    if not scheme:
+        raise HTTPException(status_code=404, detail="Scheme not found")
+    
+    if not scheme.original_document_path or not os.path.exists(scheme.original_document_path):
+        raise HTTPException(status_code=404, detail="No document available for this scheme")
+    
+    return FileResponse(
+        path=scheme.original_document_path,
+        filename=scheme.original_document_filename or "scheme_document.pdf",
+        media_type="application/pdf"
+    )

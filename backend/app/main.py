@@ -95,6 +95,16 @@ async def startup_event():
     """Initialize database tables on startup."""
     logger.info("application_startup", app_name=settings.APP_NAME)
     Base.metadata.create_all(bind=engine)
+    
+    # Run migrations for new columns on existing tables
+    from sqlalchemy import text, inspect
+    with engine.connect() as conn:
+        inspector = inspect(engine)
+        columns = [col['name'] for col in inspector.get_columns('schemes')]
+        if 'full_document_text' not in columns:
+            conn.execute(text("ALTER TABLE schemes ADD COLUMN full_document_text TEXT"))
+            conn.commit()
+            logger.info("migration_applied", column="full_document_text", table="schemes")
 
 
 @app.on_event("shutdown")
