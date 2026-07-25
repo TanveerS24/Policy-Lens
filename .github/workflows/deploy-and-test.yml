@@ -13,6 +13,11 @@ on:
       - develop
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 env:
   BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
   PYTHON_VERSION: '3.11'
@@ -21,6 +26,10 @@ env:
 jobs:
   deploy-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
     
     steps:
       - name: "Stage 1: Repository Checkout"
