@@ -289,7 +289,7 @@ def generate_summary_report():
 | Vulnerability Testing | `Vulnerability_Testing_Report.xlsx` | 300 | 🟢 PASSED |
 | Load Testing | `Load_Testing_Report.xlsx` | 300 | 🟢 PASSED |
 | Appium Mobile Testing | `Appium_Testing_Report.xlsx` | 300 | 🟢 PASSED |
-| Master Consolidated Report | `Automation_Test_Report.xlsx` | 1200 | 🟢 PASSED |
+
 
 <details>
 <summary>🔍 View All 300 Selenium Testing Cases (Status List)</summary>

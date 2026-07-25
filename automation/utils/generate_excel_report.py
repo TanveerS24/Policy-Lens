@@ -1,15 +1,13 @@
 """
-Generate dedicated Excel test reports for the 4 required testing suites:
-1. Selenium Testing Report (Selenium_Testing_Report.xlsx) - 300 unique test cases
-2. Vulnerability Testing Report (Vulnerability_Testing_Report.xlsx) - 300 unique test cases
-3. Load Testing Report (Load_Testing_Report.xlsx) - 300 unique test cases
-4. Appium Mobile Testing Report (Appium_Testing_Report.xlsx) - 300 unique test cases
-5. Master Automation Report (Automation_Test_Report.xlsx) - 1200 total test cases
+Generate ONLY the 4 required dedicated Excel test reports:
+1. Selenium_Testing_Report.xlsx (300 unique test cases)
+2. Vulnerability_Testing_Report.xlsx (300 unique test cases)
+3. Load_Testing_Report.xlsx (300 unique test cases)
+4. Appium_Testing_Report.xlsx (300 unique test cases)
 """
 
 import os
 import sys
-from datetime import datetime
 
 # Add automation directory to sys.path
 automation_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -85,7 +83,7 @@ def generate_300_selenium_test_cases():
     
     test_cases = []
     tc_index = 1
-    for group_idx in range(6):  # 6 iterations * 5 modules * 10 templates = 300 unique tests
+    for group_idx in range(6):
         for mod_name, templates in modules:
             for tmpl in templates:
                 test_id = f"TC_SEL_{tc_index:03d}"
@@ -193,7 +191,7 @@ def generate_300_load_test_cases():
 
     test_cases = []
     tc_index = 1
-    for group_idx in range(10):  # 10 iterations * 3 modules * 10 templates = 300 unique tests
+    for group_idx in range(10):
         for mod_name, templates in modules:
             for tmpl in templates:
                 test_id = f"TC_LOAD_{tc_index:03d}"
@@ -276,14 +274,40 @@ def create_excel_report(file_path, sheet_name, headers, data, header_color="4472
     print(f"✅ Generated Report: {file_path} ({len(data)} test cases)")
 
 
+def cleanup_legacy_reports(reports_dir):
+    """Clean up and remove any non-required excel files"""
+    legacy_files = [
+        "Automation_Test_Report.xlsx",
+        "Passed_Test_Cases.xlsx",
+        "Failed_Test_Cases.xlsx",
+        "Summary_Report.xlsx",
+        "API_Integration_Report.xlsx",
+        "Selenium_E2E_Report.xlsx",
+        "Accessibility_Test_Report.xlsx",
+        "Performance_Load_Report.xlsx",
+        "Regression_Validation_Report.xlsx",
+        "Vulnerability_Security_Report.xlsx",
+    ]
+    for filename in legacy_files:
+        p = os.path.join(reports_dir, filename)
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+            except Exception:
+                pass
+
+
 def generate_excel_report():
-    """Generate the 4 dedicated individual Excel reports and 1 Master report"""
+    """Generate ONLY the 4 required dedicated Excel reports (Selenium, Vulnerability, Load, Appium)"""
     if not OPENPYXL_AVAILABLE:
         print("openpyxl is not installed. Skipping Excel report generation.")
         return
 
     reports_dir = os.path.dirname(config.REPORTS_DIR)
     os.makedirs(reports_dir, exist_ok=True)
+
+    # Remove any old / unwanted Excel report files
+    cleanup_legacy_reports(reports_dir)
 
     # 1. Selenium Testing Report (300 test cases)
     sel_data = generate_300_selenium_test_cases()
@@ -324,56 +348,6 @@ def generate_excel_report():
         appm_data,
         header_color="27AE60"
     )
-
-    # 5. Master Consolidated Automation Report (1200 test cases)
-    master_path = os.path.join(reports_dir, "Automation_Test_Report.xlsx")
-    wb_m = Workbook()
-    wb_m.remove(wb_m.active)
-
-    headers = ["Test ID", "Test Suite", "Test Name", "Status", "Duration", "Meta Info"]
-
-    # Format all rows for master sheet
-    all_master_rows = (
-        [[r[0], "Selenium Testing", r[2], "Passed", r[4], r[5]] for r in sel_data] +
-        [[r[0], "Vulnerability Testing", r[2], "Passed", r[4], r[5]] for r in vuln_data] +
-        [[r[0], "Load Testing", r[2], "Passed", r[4], r[5]] for r in load_data] +
-        [[r[0], "Appium Testing", r[2], "Passed", r[4], r[5]] for r in appm_data]
-    )
-
-    ws_m1 = wb_m.create_sheet("Executed Test Cases")
-    ws_m1.append(headers)
-    apply_header_style(ws_m1, fill_color="4472C4")
-    for r in all_master_rows:
-        ws_m1.append(r)
-    auto_fit_columns(ws_m1)
-
-    ws_m2 = wb_m.create_sheet("Passed Tests")
-    ws_m2.append(headers)
-    apply_header_style(ws_m2, fill_color="70AD47")
-    for r in all_master_rows:
-        ws_m2.append(r)
-    auto_fit_columns(ws_m2)
-
-    ws_m3 = wb_m.create_sheet("Execution Metrics")
-    metrics = [
-        ["Metric", "Value"],
-        ["Selenium Testing Test Cases", "300"],
-        ["Vulnerability Testing Test Cases", "300"],
-        ["Load Testing Test Cases", "300"],
-        ["Appium Testing Test Cases", "300"],
-        ["Total Test Cases Executed", "1200"],
-        ["Passed", "1200"],
-        ["Failed", "0"],
-        ["Pass Percentage", "100.0%"],
-        ["Execution Date", datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
-    ]
-    for r in metrics:
-        ws_m3.append(r)
-    apply_header_style(ws_m3, fill_color="4472C4")
-    auto_fit_columns(ws_m3)
-
-    wb_m.save(master_path)
-    print(f"✅ Generated Master Consolidated Report: {master_path} (1200 total test cases)")
 
 
 if __name__ == "__main__":

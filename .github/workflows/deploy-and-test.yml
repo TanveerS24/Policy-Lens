@@ -177,14 +177,18 @@ jobs:
         with:
           name: test-reports
           path: |
+            automation/Selenium_Testing_Report.xlsx
+            automation/Vulnerability_Testing_Report.xlsx
+            automation/Load_Testing_Report.xlsx
+            automation/Appium_Testing_Report.xlsx
             automation/reports/
             automation/screenshots/
             automation/logs/
-            automation/*.xlsx
             automation/*.json
             automation/*.md
           if-no-files-found: ignore
           retention-days: 30
+
 
       - name: "Stage 12: Publish Summary"
         if: always()
