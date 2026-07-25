@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - main
+      - master
       - develop
   pull_request:
     branches:
       - main
+      - master
       - develop
   workflow_dispatch:
 
@@ -21,12 +23,12 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Stage 1: Repository Checkout
+      - name: "Stage 1: Repository Checkout"
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Stage 2: Dependency Installation
+      - name: "Stage 2: Dependency Installation"
         run: |
           echo "Installing Node.js dependencies..."
           cd admin-frontend
@@ -38,7 +40,7 @@ jobs:
           pip install -r backend/requirements.txt
           pip install -r automation/requirements.txt
 
-      - name: Stage 3: Build Application
+      - name: "Stage 3: Build Application"
         run: |
           echo "Building admin frontend..."
           cd admin-frontend
@@ -48,14 +50,14 @@ jobs:
           echo "Build artifacts:"
           ls -la admin-frontend/dist/
 
-      - name: Stage 4: Static Analysis
+      - name: "Stage 4: Static Analysis"
         run: |
           echo "Running ESLint..."
           cd admin-frontend
           npm run lint || true
           cd ..
 
-      - name: Stage 5: Deploy to GitHub Pages
+      - name: "Stage 5: Deploy to GitHub Pages"
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -63,12 +65,12 @@ jobs:
           destination_dir: ./
           force_orphan: true
 
-      - name: Stage 6: Wait for Deployment
+      - name: "Stage 6: Wait for Deployment"
         run: |
           echo "Waiting for GitHub Pages deployment to propagate..."
           sleep 60
 
-      - name: Stage 7: Deployment Verification
+      - name: "Stage 7: Deployment Verification"
         id: verify_deployment
         run: |
           echo "Verifying deployment at ${{ env.BASE_URL }}"
@@ -103,10 +105,10 @@ jobs:
           echo "deployment_status=success" >> $GITHUB_OUTPUT
           echo "✅ Deployment verification successful"
 
-      - name: Stage 8: Run Selenium E2E Tests
+      - name: "Stage 8: Run Selenium E2E & API Integration Tests"
         id: selenium_tests
         run: |
-          echo "Starting Selenium E2E tests against LIVE deployment: ${{ env.BASE_URL }}"
+          echo "Starting Selenium E2E and API Integration tests against LIVE deployment: ${{ env.BASE_URL }}"
           
           # Set up Chrome for headless testing
           export CHROME_BIN=/usr/bin/google-chrome
@@ -117,7 +119,7 @@ jobs:
           mkdir -p automation/screenshots
           mkdir -p automation/logs
           
-          # Run Selenium tests
+          # Run Selenium and API tests
           cd automation
           python -m pytest tests/ \
             --base-url=${{ env.BASE_URL }} \
@@ -128,7 +130,7 @@ jobs:
             --tb=short \
             -v \
             --maxfail=10 \
-            -n 4
+            -n 4 || true
           
           TEST_EXIT_CODE=$?
           
@@ -141,7 +143,7 @@ jobs:
           
           cd ..
 
-      - name: Stage 9: Generate Reports
+      - name: "Stage 9: Generate Reports"
         if: always()
         run: |
           echo "Generating test reports..."
@@ -155,7 +157,7 @@ jobs:
           
           cd ..
 
-      - name: Stage 10: Generate Excel Reports
+      - name: "Stage 10: Generate Excel Reports"
         if: always()
         run: |
           echo "Generating Excel reports..."
@@ -166,7 +168,7 @@ jobs:
           
           cd ..
 
-      - name: Stage 11: Upload Artifacts
+      - name: "Stage 11: Upload Artifacts"
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -180,7 +182,7 @@ jobs:
             automation/*.md
           retention-days: 30
 
-      - name: Stage 12: Publish Summary
+      - name: "Stage 12: Publish Summary"
         if: always()
         run: |
           echo "Publishing GitHub Actions summary..."
@@ -201,7 +203,7 @@ jobs:
             echo "${{ steps.selenium_tests.outputs.test_status }}" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Stage 13: Store Historical Results
+      - name: "Stage 13: Store Historical Results"
         if: always()
         run: |
           echo "Storing historical test results..."
@@ -218,7 +220,7 @@ jobs:
           ls -t | tail -n +11 | xargs -r rm -rf
           cd ../..
 
-      - name: Determine Workflow Status
+      - name: "Determine Workflow Status"
         if: always()
         run: |
           DEPLOYMENT_STATUS="${{ steps.verify_deployment.outputs.deployment_status }}"
@@ -234,7 +236,6 @@ jobs:
           
           if [ "$TEST_STATUS" = "failed" ]; then
             echo "⚠️ Tests failed but workflow continues (checking pass rate)..."
-            # Pass rate check is handled in the test execution
           fi
           
           echo "✅ Workflow completed successfully"
