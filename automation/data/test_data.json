@@ -1,0 +1,116 @@
+{
+  "users": {
+    "super_admin": {
+      "email": "super_admin@example.com",
+      "password": "Admin@123456",
+      "name": "Super Admin",
+      "role": "super_admin"
+    },
+    "content_admin": {
+      "email": "content_admin@example.com",
+      "password": "Admin@123456",
+      "name": "Content Admin",
+      "role": "content_admin"
+    },
+    "support_admin": {
+      "email": "support_admin@example.com",
+      "password": "Admin@123456",
+      "name": "Support Admin",
+      "role": "support_admin"
+    },
+    "regular_user": {
+      "email": "user@example.com",
+      "password": "User@123456",
+      "name": "Regular User",
+      "role": "user"
+    }
+  },
+  "schemes": {
+    "valid_scheme": {
+      "name": "Test Dental Scheme",
+      "description": "A test dental scheme for automation",
+      "type": "state",
+      "status": "active",
+      "coverage_amount": 50000,
+      "premium": 1000
+    },
+    "invalid_scheme": {
+      "name": "",
+      "description": "",
+      "type": "",
+      "status": "",
+      "coverage_amount": -1,
+      "premium": -1
+    }
+  },
+  "validation": {
+    "valid_emails": [
+      "test@example.com",
+      "user+tag@example.com",
+      "user.name@example.com",
+      "user_name123@example.com"
+    ],
+    "invalid_emails": [
+      "invalid-email",
+      "test@",
+      "@example.com",
+      "test..test@example.com",
+      "test@example..com"
+    ],
+    "valid_passwords": [
+      "Password@123",
+      "Secure#456",
+      "Strong$789",
+      "Complex%101112"
+    ],
+    "invalid_passwords": [
+      "123",
+      "password",
+      "PASSWORD",
+      "Password123",
+      "Pass@1"
+    ],
+    "valid_phones": [
+      "1234567890",
+      "+911234567890",
+      "9876543210"
+    ],
+    "invalid_phones": [
+      "123",
+      "abcdefghij",
+      "123-456-7890"
+    ]
+  },
+  "urls": {
+    "base_url": "https://username.github.io/repository-name/",
+    "login": "/login",
+    "dashboard": "/dashboard",
+    "schemes": "/schemes",
+    "users": "/users",
+    "admins": "/admins"
+  },
+  "performance": {
+    "thresholds": {
+      "page_load_time": 3.0,
+      "api_response_time": 1.0,
+      "form_submission_time": 2.0,
+      "search_response_time": 1.0
+    }
+  },
+  "files": {
+    "valid_images": [
+      "test.jpg",
+      "test.png",
+      "test.gif"
+    ],
+    "valid_documents": [
+      "test.pdf",
+      "test.docx"
+    ],
+    "invalid_files": [
+      "test.exe",
+      "test.bat",
+      "test.sh"
+    ]
+  }
+}
