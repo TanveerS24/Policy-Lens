@@ -159,7 +159,8 @@ def generate_summary_report():
         for t in api_tests_data
     ])
 
-    summary_content = f"""# AmbiEye Test Execution Dashboard
+    summary_content = f"""# Policy-Lens Test Execution Dashboard
+
 
 ### 📈 Overall Metrics
 
