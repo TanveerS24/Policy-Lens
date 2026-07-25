@@ -181,13 +181,9 @@ jobs:
             automation/Vulnerability_Testing_Report.xlsx
             automation/Load_Testing_Report.xlsx
             automation/Appium_Testing_Report.xlsx
-            automation/reports/
-            automation/screenshots/
-            automation/logs/
-            automation/*.json
-            automation/*.md
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 30
+
 
 
       - name: "Stage 12: Publish Summary"
