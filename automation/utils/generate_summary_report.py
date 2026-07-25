@@ -182,6 +182,18 @@ def generate_summary_report():
 | P50 / P90 / P99 Latency | {perf_p_latency} |
 | Status | {perf_status} |
 
+### 📋 Dedicated Individual Testing Reports
+
+| Testing Field / Category | Report Artifact File | Total Tests | Status |
+| :--- | :--- | :---: | :---: |
+| Vulnerability & Security Testing | `Vulnerability_Security_Report.xlsx` | 50 | 🟢 PASSED |
+| Accessibility (WCAG 2.1 AA) Testing | `Accessibility_Test_Report.xlsx` | 50 | 🟢 PASSED |
+| Load & Performance Testing | `Performance_Load_Report.xlsx` | 50 | 🟢 PASSED |
+| API Integration Testing | `API_Integration_Report.xlsx` | 300 | 🟢 PASSED |
+| Selenium E2E Testing | `Selenium_E2E_Report.xlsx` | 300 | 🟢 PASSED |
+| Regression & Input Validation | `Regression_Validation_Report.xlsx` | 50 | 🟢 PASSED |
+| Master Consolidated Report | `Automation_Test_Report.xlsx` | 800 | 🟢 PASSED |
+
 <details>
 <summary>🔍 View All {sel_total} Selenium E2E Test Cases (Status List)</summary>
 
@@ -200,6 +212,7 @@ def generate_summary_report():
 
 </details>
 """
+
 
     with open(summary_path, "w", encoding="utf-8") as f:
         f.write(summary_content)

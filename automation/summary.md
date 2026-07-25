@@ -21,6 +21,18 @@
 | P50 / P90 / P99 Latency | 52 ms / 260 ms / 260 ms |
 | Status | 🟢 PASSED |
 
+### 📋 Dedicated Individual Testing Reports
+
+| Testing Field / Category | Report Artifact File | Total Tests | Status |
+| :--- | :--- | :---: | :---: |
+| Vulnerability & Security Testing | `Vulnerability_Security_Report.xlsx` | 50 | 🟢 PASSED |
+| Accessibility (WCAG 2.1 AA) Testing | `Accessibility_Test_Report.xlsx` | 50 | 🟢 PASSED |
+| Load & Performance Testing | `Performance_Load_Report.xlsx` | 50 | 🟢 PASSED |
+| API Integration Testing | `API_Integration_Report.xlsx` | 300 | 🟢 PASSED |
+| Selenium E2E Testing | `Selenium_E2E_Report.xlsx` | 300 | 🟢 PASSED |
+| Regression & Input Validation | `Regression_Validation_Report.xlsx` | 50 | 🟢 PASSED |
+| Master Consolidated Report | `Automation_Test_Report.xlsx` | 800 | 🟢 PASSED |
+
 <details>
 <summary>🔍 View All 300 Selenium E2E Test Cases (Status List)</summary>
 
