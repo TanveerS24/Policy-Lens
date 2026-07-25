@@ -32,7 +32,11 @@ jobs:
         run: |
           echo "Installing Node.js dependencies..."
           cd admin-frontend
-          npm ci
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
           cd ..
           
           echo "Installing Python dependencies..."
@@ -180,6 +184,7 @@ jobs:
             automation/*.xlsx
             automation/*.json
             automation/*.md
+          if-no-files-found: ignore
           retention-days: 30
 
       - name: "Stage 12: Publish Summary"
@@ -209,10 +214,10 @@ jobs:
           echo "Storing historical test results..."
           mkdir -p automation/history
           
-          # Archive results with timestamp
+          # Archive results with timestamp safely
           TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          cp -r automation/reports automation/history/reports_$TIMESTAMP
-          cp -r automation/screenshots automation/history/screenshots_$TIMESTAMP
+          [ -d automation/reports ] && cp -r automation/reports automation/history/reports_$TIMESTAMP 2>/dev/null || true
+          [ -d automation/screenshots ] && cp -r automation/screenshots automation/history/screenshots_$TIMESTAMP 2>/dev/null || true
           cp automation/*.json automation/history/ 2>/dev/null || true
           
           # Keep only last 10 executions
