@@ -290,7 +290,7 @@ const NotifyUsersPage: React.FC = () => {
                         type="radio"
                         value="immediate"
                         checked={formData.schedule_type === 'immediate'}
-                        onChange={(e) => setFormData({ ...formData, schedule_type: 'immediate' })}
+                        onChange={() => setFormData({ ...formData, schedule_type: 'immediate' })}
                         className="mr-2"
                       />
                       <span className="text-sm">Send Immediately</span>
@@ -300,7 +300,7 @@ const NotifyUsersPage: React.FC = () => {
                         type="radio"
                         value="scheduled"
                         checked={formData.schedule_type === 'scheduled'}
-                        onChange={(e) => setFormData({ ...formData, schedule_type: 'scheduled' })}
+                        onChange={() => setFormData({ ...formData, schedule_type: 'scheduled' })}
                         className="mr-2"
                       />
                       <span className="text-sm">Schedule for Later</span>

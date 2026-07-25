@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import os
 import uuid
-import magic
 
 from app.config.database import get_db
 from app.config.settings import get_settings

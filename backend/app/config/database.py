@@ -1,8 +1,8 @@
 """Database configuration and session management."""
 
+from typing import Generator
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 from contextlib import contextmanager
 import structlog
 
@@ -21,12 +21,15 @@ engine = create_engine(
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 # Base class for models
-Base = declarative_base()
+class Base(DeclarativeBase):
+    """Declarative base class for all ORM models."""
+    pass
 
 
 @contextmanager
-def get_db_session() -> Session:
+def get_db_session() -> Generator[Session, None, None]:
     """Context manager for database sessions."""
     db = SessionLocal()
     try:
@@ -39,7 +42,7 @@ def get_db_session() -> Session:
         db.close()
 
 
-def get_db() -> Session:
+def get_db() -> Generator[Session, None, None]:
     """Get database session for dependency injection."""
     db = SessionLocal()
     try:

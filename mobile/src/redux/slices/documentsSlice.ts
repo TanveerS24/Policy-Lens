@@ -59,6 +59,9 @@ export const uploadDocument = createAsyncThunk(
   'documents/uploadDocument',
   async (file: { uri: string; name: string; type: string }) => {
     const formData = new FormData();
+    
+    // In React Native, we need to append the file with proper format
+    // The file object needs to have uri, name, and type properties
     formData.append('file', {
       uri: file.uri,
       name: file.name,

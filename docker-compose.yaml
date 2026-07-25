@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   db:
     image: postgres:15-alpine
-    container_name: dentalschemes-db
+    container_name: policylens-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -13,22 +11,35 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-dentalschemes}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: dentalschemes-redis
+    container_name: policylens-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   # Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: dentalschemes-backend
+    container_name: policylens-backend
     env_file:
       - .env
     environment:
@@ -36,22 +47,32 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
       - DEBUG=${DEBUG:-false}
-      - OLLAMA_HOST=host.docker.internal
+      - OLLAMA_HOST=${OLLAMA_HOST:-host.docker.internal}
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:8081,http://127.0.0.1:8081,exp://localhost:8081,http://10.196.46.32:8081,http://10.196.46.32:19000,http://10.196.46.32:19001
     ports:
-      - "8000:8000"
+      - "0.0.0.0:8000:8000"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
 
   # Admin Frontend
   admin-frontend:
     build:
       context: ./admin-frontend
       dockerfile: Dockerfile
-    container_name: dentalschemes-admin
+    container_name: policylens-admin
     env_file:
       - .env
     environment:
@@ -61,11 +82,13 @@ services:
     ports:
       - "5173:5173"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     volumes:
       - ./admin-frontend:/app
       - /app/node_modules
     command: ["npm", "run", "dev", "--", "--host", "--port", "5173"]
+    restart: unless-stopped
 
 volumes:
   postgres_data:

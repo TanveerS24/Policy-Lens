@@ -54,8 +54,9 @@ const getDevelopmentApiUrl = (): string => {
   if (Platform.OS === 'web') {
     return 'http://localhost:8000/api/v1';
   }
-  // Use the machine's LAN IP for physical devices & emulators
-  return 'http://192.168.0.100:8000/api/v1';
+  // For Expo Go on physical devices, use the machine's LAN IP
+  // Current PC IP: 10.196.46.32 (Wi-Fi adapter)
+  return 'http://10.196.46.32:8000/api/v1';
 };
 
 const FINAL_API_URL = __DEV__ ? getDevelopmentApiUrl() : API_BASE_URL;
@@ -75,6 +76,11 @@ api.interceptors.request.use(
       const token = await storage.getItemAsync('accessToken');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+      }
+      
+      // For multipart/form-data, let the browser/React Native set the Content-Type with boundary
+      if (config.headers['Content-Type'] === 'multipart/form-data') {
+        delete config.headers['Content-Type'];
       }
     } catch (error) {
       console.error('Error getting token from storage:', error);

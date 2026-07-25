@@ -1,12 +1,12 @@
 """Admin endpoints."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session 
+from sqlalchemy.orm import Session
 from sqlalchemy import func
 import bcrypt
 import os
@@ -14,6 +14,9 @@ import uuid
 import requests
 import PyPDF2
 import io
+import structlog
+
+logger = structlog.get_logger()
 
 from app.config.database import get_db
 from app.config.settings import get_settings
@@ -149,7 +152,7 @@ async def admin_login(request: AdminLoginRequest, db: Session = Depends(get_db))
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Check lockout
-    if admin.locked_until and admin.locked_until > datetime.utcnow():
+    if admin.locked_until and admin.locked_until > datetime.now(timezone.utc):
         raise HTTPException(status_code=423, detail="Account locked. Try again later.")
     
     # Verify password
@@ -157,7 +160,7 @@ async def admin_login(request: AdminLoginRequest, db: Session = Depends(get_db))
         admin.failed_login_attempts += 1
         
         if admin.failed_login_attempts >= settings.MAX_LOGIN_ATTEMPTS:
-            admin.locked_until = datetime.utcnow() + timedelta(minutes=settings.LOCKOUT_DURATION_MINUTES)
+            admin.locked_until = datetime.now(timezone.utc) + timedelta(minutes=settings.LOCKOUT_DURATION_MINUTES)
         
         db.commit()
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -171,7 +174,7 @@ async def admin_login(request: AdminLoginRequest, db: Session = Depends(get_db))
     # Reset failed attempts
     admin.failed_login_attempts = 0
     admin.locked_until = None
-    admin.last_login_at = datetime.utcnow()
+    admin.last_login_at = datetime.now(timezone.utc)
     db.commit()
     
     # Generate tokens
@@ -233,7 +236,7 @@ async def get_dashboard(
     # User statistics
     total_users = db.query(User).filter(User.is_active == True).count()
     new_users_today = db.query(User).filter(
-        User.created_at >= datetime.utcnow() - timedelta(days=1)
+        User.created_at >= datetime.now(timezone.utc) - timedelta(days=1)
     ).count()
     
     # Scheme statistics
@@ -246,13 +249,13 @@ async def get_dashboard(
     # Eligibility checks
     total_eligibility_checks = db.query(func.count(EligibilityCheck.id)).scalar()
     eligibility_checks_this_week = db.query(func.count(EligibilityCheck.id)).filter(
-        EligibilityCheck.created_at >= datetime.utcnow() - timedelta(days=7)
+        EligibilityCheck.created_at >= datetime.now(timezone.utc) - timedelta(days=7)
     ).scalar()
     
     # Documents
     total_documents = db.query(func.count(Document.id)).scalar()
     documents_this_week = db.query(func.count(Document.id)).filter(
-        Document.uploaded_at >= datetime.utcnow() - timedelta(days=7)
+        Document.uploaded_at >= datetime.now(timezone.utc) - timedelta(days=7)
     ).scalar()
     
     # Recent activity
@@ -611,9 +614,9 @@ def get_ollama_host() -> str:
         try:
             response = requests.get(f"http://{host}:11434/api/tags", timeout=2)
             if response.status_code == 200:
-                print(f"[Ollama] Found working host: {host}")
+                logger.info("ollama_host_found", host=host)
                 return host
-        except:
+        except Exception:
             continue
     
     # Default fallback
@@ -622,13 +625,13 @@ def get_ollama_host() -> str:
 def check_ollama_health() -> bool:
     """Check if Ollama is reachable."""
     ollama_host = get_ollama_host()
-    print(f"[DEBUG] Checking Ollama health at: {ollama_host}")
+    logger.debug("checking_ollama_health", host=ollama_host)
     try:
         response = requests.get(f"http://{ollama_host}:11434/api/tags", timeout=5)
-        print(f"[DEBUG] Ollama health response: {response.status_code}")
+        logger.debug("ollama_health_response", status=response.status_code)
         return response.status_code == 200
     except Exception as e:
-        print(f"[Ollama] Health check failed for {ollama_host}: {e}")
+        logger.warning("ollama_health_check_failed", host=ollama_host, error=str(e))
         return False
 
 
@@ -687,7 +690,6 @@ async def upload_pdf(
         raise HTTPException(status_code=400, detail="File too large. Maximum size: 10MB")
     
     # Generate unique file ID and store
-    import uuid
     file_id = str(uuid.uuid4())
     temp_pdf_storage[file_id] = {
         "content": contents,
@@ -838,7 +840,7 @@ async def publish_scheme(
             if extracted_text and extracted_text.strip():
                 scheme.full_document_text = extracted_text.strip()
         except Exception as e:
-            print(f"[Warning] Failed to extract text from PDF for scheme {scheme.id}: {e}")
+            logger.warning("pdf_text_extraction_failed", scheme_id=scheme.id, error=str(e))
         
         db.commit()
         

@@ -1,17 +1,18 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { api } from '../../services/api';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Use the same storage utility from api.ts
+const isWeb = Platform.OS === 'web';
+
+// Use the same storage utility as api.ts
 const storage = {
   async getItemAsync(key: string): Promise<string | null> {
     try {
-      // For web, use AsyncStorage, for native use SecureStore
-      if (typeof window !== 'undefined') {
-        // Web environment - use localStorage as fallback
-        return localStorage.getItem(key);
+      if (isWeb) {
+        return await AsyncStorage.getItem(key);
       } else {
-        // Native environment - use SecureStore
-        const { SecureStore } = require('expo-secure-store');
         return await SecureStore.getItemAsync(key);
       }
     } catch (error) {
@@ -22,10 +23,9 @@ const storage = {
   
   async setItemAsync(key: string, value: string): Promise<void> {
     try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(key, value);
+      if (isWeb) {
+        await AsyncStorage.setItem(key, value);
       } else {
-        const { SecureStore } = require('expo-secure-store');
         await SecureStore.setItemAsync(key, value);
       }
     } catch (error) {
@@ -36,10 +36,9 @@ const storage = {
   
   async deleteItemAsync(key: string): Promise<void> {
     try {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(key);
+      if (isWeb) {
+        await AsyncStorage.removeItem(key);
       } else {
-        const { SecureStore } = require('expo-secure-store');
         await SecureStore.deleteItemAsync(key);
       }
     } catch (error) {

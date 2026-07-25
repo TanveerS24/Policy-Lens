@@ -1,6 +1,6 @@
 """Notification endpoints."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -13,7 +13,9 @@ from app.models.scheme import Scheme
 from app.models.admin import AdminUser
 from app.api.v1.endpoints.patients import get_current_user
 from app.api.v1.endpoints.admin import get_current_admin
+import structlog
 
+logger = structlog.get_logger()
 router = APIRouter()
 
 
@@ -133,7 +135,7 @@ async def mark_notification_read(
         raise HTTPException(status_code=404, detail="Notification not found")
     
     notification.is_read = True
-    notification.read_at = datetime.utcnow()
+    notification.read_at = datetime.now(timezone.utc)
     db.commit()
     
     return {"message": "Notification marked as read"}
@@ -150,7 +152,7 @@ async def mark_all_notifications_read(
         Notification.is_read == False
     ).update({
         "is_read": True,
-        "read_at": datetime.utcnow()
+        "read_at": datetime.now(timezone.utc)
     })
     db.commit()
     
@@ -172,7 +174,7 @@ async def register_push_token(
         existing.user_id = user.id
         existing.platform = request.platform
         existing.is_active = True
-        existing.last_used_at = datetime.utcnow()
+        existing.last_used_at = datetime.now(timezone.utc)
     else:
         token = PushToken(
             user_id=user.id,
@@ -393,13 +395,13 @@ async def send_broadcast_notifications(broadcast: UserBroadcast, db: Session):
             sent_count += 1
         except Exception as e:
             failed_count += 1
-            print(f"Failed to send notification to user {user.id}: {e}")
+            logger.warning("broadcast_notification_failed", user_id=user.id, error=str(e))
     
     db.commit()
     
     # Update broadcast stats
     broadcast.sent_count = sent_count
     broadcast.failed_count = failed_count
-    broadcast.sent_at = datetime.utcnow()
+    broadcast.sent_at = datetime.now(timezone.utc)
     broadcast.status = "sent"
     db.commit()

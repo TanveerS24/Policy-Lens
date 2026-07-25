@@ -1,6 +1,6 @@
 """JWT token service."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple, Dict
 from jose import jwt, JWTError
 
@@ -20,7 +20,7 @@ class JWTService:
     
     def create_tokens(self, user_id: int, role: str = "patient") -> Tuple[str, str]:
         """Create access and refresh tokens."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         # Access token
         access_payload = {

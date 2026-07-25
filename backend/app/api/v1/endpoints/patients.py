@@ -1,8 +1,8 @@
 """Patient endpoints."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -121,7 +121,7 @@ async def update_profile(
     if request.category:
         user.profile.category = request.category
     
-    user.updated_at = datetime.utcnow()
+    user.updated_at = datetime.now(timezone.utc)
     db.commit()
     
     return {"message": "Profile updated successfully"}
@@ -143,7 +143,7 @@ async def change_password(
     # Hash new password
     new_hash = bcrypt.hashpw(request.new_password.encode(), bcrypt.gensalt()).decode()
     user.hashed_password = new_hash
-    user.updated_at = datetime.utcnow()
+    user.updated_at = datetime.now(timezone.utc)
     db.commit()
     
     return {"message": "Password changed successfully"}
@@ -186,7 +186,7 @@ async def deactivate_account(
         raise HTTPException(status_code=400, detail="Confirmation required")
     
     user.is_active = False
-    user.deactivated_at = datetime.utcnow()
+    user.deactivated_at = datetime.now(timezone.utc)
     db.commit()
     
     return {"message": "Account deactivated successfully"}
@@ -205,7 +205,7 @@ async def delete_account(
     # TODO: Schedule data deletion or anonymize
     # For now, just deactivate
     user.is_active = False
-    user.deactivated_at = datetime.utcnow()
+    user.deactivated_at = datetime.now(timezone.utc)
     db.commit()
     
     return {"message": "Account deletion scheduled"}
