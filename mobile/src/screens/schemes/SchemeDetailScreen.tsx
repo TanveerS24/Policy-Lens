@@ -308,7 +308,8 @@ const createStyles = (colors: any) =>
       marginLeft: 4,
     },
     scrollContent: {
-      padding: 20,
+      paddingHorizontal: 16,
+      paddingVertical: 16,
       paddingBottom: 40,
     },
     schemeName: {

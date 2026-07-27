@@ -53,14 +53,14 @@ export const MainTabNavigator: React.FC = () => {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 64,
+          paddingBottom: 6,
+          paddingTop: 6,
+          height: 68,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          marginTop: 2,
-          color: colors.textPrimary,
+          fontSize: 11,
+          fontWeight: '500',
+          marginBottom: 2,
         },
       })}
     >

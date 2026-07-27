@@ -3,6 +3,7 @@
 import io
 import os
 import re
+import shutil
 from typing import Dict, Any
 import PyPDF2
 import pdfplumber
@@ -111,35 +112,47 @@ class PDFProcessingService:
         return True
 
     def _extract_text_with_ocr(self, file_content: bytes) -> str:
-        """Extract text from PDF using OCR."""
+        """Extract text from PDF using OCR and pdf2image."""
+        # Auto-detect Tesseract executable on Windows if not in PATH
+        if os.name == 'nt' and not shutil.which('tesseract'):
+            default_win_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+            if os.path.exists(default_win_path):
+                pytesseract.pytesseract.tesseract_cmd = default_win_path
+
+        full_text = ""
+
+        # Method A: Use pdf2image for scanned PDF page rendering
+        try:
+            from pdf2image import convert_from_bytes
+            images = convert_from_bytes(file_content)
+            for page_num, image in enumerate(images):
+                text = pytesseract.image_to_string(image)
+                if text and text.strip():
+                    full_text += f"Page {page_num + 1}:\n{text.strip()}\n\n"
+            if full_text.strip():
+                return full_text.strip()
+        except Exception as e:
+            logger.warning("pdf2image_ocr_fallback", error=str(e))
+
+        # Method B: Fallback to PyPDF2 page embedded image extraction
         try:
             pdf_file = io.BytesIO(file_content)
             pdf_reader = PyPDF2.PdfReader(pdf_file)
 
-            full_text = ""
-
             for page_num, page in enumerate(pdf_reader.pages):
-                # Convert page to image
                 page_images = page.images
 
                 if page_images:
                     for img_index, img in enumerate(page_images):
-                        # Extract image data
-                        img_data = img.data
-                        image = Image.open(io.BytesIO(img_data))
-
-                        # Perform OCR
+                        image = Image.open(io.BytesIO(img.data))
                         text = pytesseract.image_to_string(image)
                         if text.strip():
-                            full_text += f"Page {page_num + 1}, Image {img_index + 1}:\n{text}\n\n"
-
-                # If no embedded images, try rendering page as image
+                            full_text += f"Page {page_num + 1}, Image {img_index + 1}:\n{text.strip()}\n\n"
                 else:
                     try:
-                        # Fallback method — extract any remaining text
                         page_text = page.extract_text()
                         if page_text and page_text.strip():
-                            full_text += f"Page {page_num + 1} (fallback extraction):\n{page_text}\n\n"
+                            full_text += f"Page {page_num + 1}:\n{page_text.strip()}\n\n"
                     except Exception:
                         continue
 

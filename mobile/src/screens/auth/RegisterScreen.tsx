@@ -254,6 +254,10 @@ export const RegisterScreen: React.FC = () => {
               onChangeText={(text) => updateForm('name', text)}
               mode="outlined"
               style={styles.input}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              textColor={colors.textPrimary}
+              theme={{ colors: { onSurfaceVariant: colors.textSecondary } }}
             />
 
             <TextInput
@@ -263,6 +267,10 @@ export const RegisterScreen: React.FC = () => {
               mode="outlined"
               keyboardType="phone-pad"
               style={styles.input}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              textColor={colors.textPrimary}
+              theme={{ colors: { onSurfaceVariant: colors.textSecondary } }}
             />
 
             <TextInput
@@ -273,15 +281,23 @@ export const RegisterScreen: React.FC = () => {
               keyboardType="email-address"
               autoCapitalize="none"
               style={styles.input}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              textColor={colors.textPrimary}
+              theme={{ colors: { onSurfaceVariant: colors.textSecondary } }}
             />
 
             <TextInput
-              label="Date of Birth (DD-MM-YYYY) *"
+              label="Date of Birth *"
               value={formData.dateOfBirth}
               onChangeText={(text) => updateForm('dateOfBirth', text)}
               mode="outlined"
-              placeholder="01-01-1990"
+              placeholder="DD-MM-YYYY (e.g. 01-01-1990)"
               style={styles.input}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              textColor={colors.textPrimary}
+              theme={{ colors: { onSurfaceVariant: colors.textSecondary } }}
             />
 
             <View style={styles.dropdownContainer}>
@@ -292,8 +308,12 @@ export const RegisterScreen: React.FC = () => {
                   editable={false}
                   mode="outlined"
                   style={styles.input}
-                  right={<TextInput.Icon icon={showGenderMenu ? "menu-up" : "menu-down"} />}
+                  right={<TextInput.Icon icon={showGenderMenu ? "menu-up" : "menu-down"} color={colors.textSecondary} />}
                   pointerEvents="none"
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.textPrimary}
+                  theme={{ colors: { onSurfaceVariant: colors.textSecondary } }}
                 />
               </TouchableOpacity>
               {showGenderMenu && (
@@ -340,8 +360,12 @@ export const RegisterScreen: React.FC = () => {
                   editable={false}
                   mode="outlined"
                   style={styles.input}
-                  right={<TextInput.Icon icon={showStateMenu ? "menu-up" : "menu-down"} />}
+                  right={<TextInput.Icon icon={showStateMenu ? "menu-up" : "menu-down"} color={colors.textSecondary} />}
                   pointerEvents="none"
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.textPrimary}
+                  theme={{ colors: { onSurfaceVariant: colors.textSecondary } }}
                 />
               </TouchableOpacity>
               {showStateMenu && (
@@ -376,8 +400,12 @@ export const RegisterScreen: React.FC = () => {
                   editable={false}
                   mode="outlined"
                   style={[styles.input, !formData.state && styles.inputDisabled]}
-                  right={<TextInput.Icon icon={formData.state ? (showDistrictMenu ? "menu-up" : "menu-down") : "lock"} />}
+                  right={<TextInput.Icon icon={formData.state ? (showDistrictMenu ? "menu-up" : "menu-down") : "lock"} color={colors.textSecondary} />}
                   pointerEvents="none"
+                  outlineColor={colors.border}
+                  activeOutlineColor={colors.primary}
+                  textColor={colors.textPrimary}
+                  theme={{ colors: { onSurfaceVariant: colors.textSecondary } }}
                 />
               </TouchableOpacity>
               {showDistrictMenu && formData.state && (
@@ -407,6 +435,10 @@ export const RegisterScreen: React.FC = () => {
               mode="outlined"
               keyboardType="number-pad"
               style={styles.input}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              textColor={colors.textPrimary}
+              theme={{ colors: { onSurfaceVariant: colors.textSecondary } }}
             />
 
             <TextInput
@@ -419,9 +451,14 @@ export const RegisterScreen: React.FC = () => {
                 <TextInput.Icon
                   icon={showPassword ? 'eye-off' : 'eye'}
                   onPress={() => setShowPassword(!showPassword)}
+                  color={colors.textSecondary}
                 />
               }
               style={styles.input}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              textColor={colors.textPrimary}
+              theme={{ colors: { onSurfaceVariant: colors.textSecondary } }}
             />
 
             <TextInput
@@ -434,9 +471,14 @@ export const RegisterScreen: React.FC = () => {
                 <TextInput.Icon
                   icon={showConfirmPassword ? 'eye-off' : 'eye'}
                   onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  color={colors.textSecondary}
                 />
               }
               style={styles.input}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+              textColor={colors.textPrimary}
+              theme={{ colors: { onSurfaceVariant: colors.textSecondary } }}
             />
 
             <TouchableOpacity
@@ -467,7 +509,7 @@ export const RegisterScreen: React.FC = () => {
 
             <View style={styles.loginContainer}>
               <Text style={styles.loginText}>Already have an account?</Text>
-              <TouchableOpacity onPress={handleLogin}>
+              <TouchableOpacity onPress={handleLogin} activeOpacity={0.7} style={styles.loginTouch}>
                 <Text style={styles.loginLink}>Sign In</Text>
               </TouchableOpacity>
             </View>
@@ -507,30 +549,32 @@ const createStyles = (colors: any) => StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 24,
-    paddingBottom: 100,
-    minHeight: 800,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    paddingBottom: 80,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 6,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
+    paddingHorizontal: 8,
   },
   stepIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   stepRow: {
     flexDirection: 'row',
@@ -556,7 +600,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.textSecondary,
   },
   stepNumberActive: {
-    color: colors.cardBg,
+    color: '#FFFFFF',
   },
   stepLine: {
     width: 40,
@@ -569,19 +613,20 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   card: {
     backgroundColor: colors.cardBg,
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
     borderWidth: 1,
     borderColor: colors.border,
     shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 24,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
   },
   form: {
     gap: 12,
-    paddingBottom: 24,
+    paddingBottom: 16,
   },
   input: {
     backgroundColor: colors.inputBg,
@@ -590,14 +635,14 @@ const createStyles = (colors: any) => StyleSheet.create({
     opacity: 0.5,
   },
   continueButton: {
-    marginTop: 16,
-    borderRadius: 16,
+    marginTop: 14,
+    borderRadius: 14,
     overflow: 'hidden',
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   continueButtonDisabled: {
     opacity: 0.6,
@@ -605,18 +650,18 @@ const createStyles = (colors: any) => StyleSheet.create({
   previousButton: {
     flex: 1,
     marginRight: 8,
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: 'hidden',
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonRow: {
     flexDirection: 'row',
-    marginTop: 16,
-    gap: 12,
+    marginTop: 14,
+    gap: 10,
   },
   dropdownMenu: {
     maxHeight: 200,
@@ -657,25 +702,32 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderBottomColor: colors.border,
   },
   dropdownItemText: {
-    fontSize: 16,
+    fontSize: 15,
     color: colors.textPrimary,
   },
   buttonGradient: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-  },
-  buttonText: {
-    color: colors.cardBg,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loginContainer: {
-    flexDirection: 'row',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 24,
+    backgroundColor: colors.primary,
+    width: '100%',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  loginContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
     gap: 4,
+  },
+  loginTouch: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   loginText: {
     color: colors.textSecondary,
@@ -687,7 +739,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontWeight: '600',
   },
   snackbar: {
-    backgroundColor: colors.cardBg,
+    backgroundColor: colors.error,
     borderRadius: 12,
   },
 });

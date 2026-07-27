@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, Alert } from 'react-native';
+import { View, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
 import { 
   Text, 
   Card, 
@@ -20,6 +20,7 @@ import {
   uploadDocument, 
   deleteDocument,
   fetchAISummary,
+  requestPublishDocument,
   Document,
 } from '../../redux/slices/documentsSlice';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -31,6 +32,7 @@ export const DocumentsScreen: React.FC = () => {
   const { documents, isLoading, isUploading } = useSelector((state: RootState) => state.documents);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [summaryDialogVisible, setSummaryDialogVisible] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   useEffect(() => {
     dispatch(fetchDocuments());
@@ -50,10 +52,12 @@ export const DocumentsScreen: React.FC = () => {
       await dispatch(uploadDocument({
         uri: file.uri,
         name: file.name,
-        type: file.mimeType || 'application/octet-stream',
+        type: file.mimeType || 'application/pdf',
+        fileObj: (file as any).file,
       })).unwrap();
 
-      Alert.alert('Success', 'Document uploaded successfully');
+      Alert.alert('Success', 'Document uploaded successfully. AI extraction in progress.');
+      dispatch(fetchDocuments());
     } catch (error) {
       Alert.alert('Error', 'Failed to upload document');
     }
@@ -68,55 +72,57 @@ export const DocumentsScreen: React.FC = () => {
         { 
           text: 'Delete', 
           style: 'destructive',
-          onPress: async () => {
-            await dispatch(deleteDocument(doc.id));
-          }
+          onPress: () => dispatch(deleteDocument(doc.id))
         },
       ]
     );
   };
 
   const handleViewSummary = async (doc: Document) => {
-    if (!doc.summary_generated) {
-      Alert.alert('Processing', 'AI summary is being generated. Please check back later.');
-      return;
-    }
-
     setSelectedDoc(doc);
-    
-    if (!doc.ai_summary) {
-      await dispatch(fetchAISummary(doc.id));
-    }
-    
     setSummaryDialogVisible(true);
+    if (!doc.ai_summary) {
+      const res = await dispatch(fetchAISummary(doc.id)).unwrap();
+      setSelectedDoc(prev => prev ? { ...prev, ai_summary: res.summary } : prev);
+    }
+  };
+
+  const handlePublishRequest = async (doc: Document) => {
+    try {
+      setIsPublishing(true);
+      await dispatch(requestPublishDocument(doc.id)).unwrap();
+      setIsPublishing(false);
+      Alert.alert(
+        'Publish Request Submitted',
+        'Your scheme document has been submitted to Super Admins & Content Admins for review and public publishing.'
+      );
+      setSummaryDialogVisible(false);
+      dispatch(fetchDocuments());
+    } catch (err) {
+      setIsPublishing(false);
+      Alert.alert('Error', 'Failed to submit publish request to admins.');
+    }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return colors.primary;
-      case 'processing': return colors.warning;
-      case 'pending': return colors.textSecondary;
+      case 'completed': return colors.success;
+      case 'processing': return colors.primary;
       case 'failed': return colors.error;
-      default: return colors.textSecondary;
+      default: return colors.warning;
     }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const renderDocumentCard = ({ item: doc }: { item: Document }) => (
     <Card style={styles.card}>
-      <Card.Content>
+      <Card.Content style={styles.cardContent}>
         <View style={styles.cardHeader}>
-          <View style={styles.fileInfo}>
-            <Text variant="titleMedium" numberOfLines={1}>
+          <View style={styles.docInfo}>
+            <Text variant="titleMedium" style={[styles.docName, { color: colors.textPrimary }]} numberOfLines={1}>
               {doc.filename}
             </Text>
-            <Text variant="bodySmall" style={styles.fileMeta}>
-              {formatFileSize(doc.file_size)} • {doc.mime_type?.split('/')[1]?.toUpperCase() || 'FILE'}
+            <Text variant="bodySmall" style={styles.docSize}>
+              {(doc.file_size / 1024).toFixed(1)} KB
             </Text>
           </View>
           <IconButton
@@ -141,24 +147,38 @@ export const DocumentsScreen: React.FC = () => {
               AI Summary Ready
             </Chip>
           )}
+
+          {doc.publish_status === 'pending_review' && (
+            <Chip compact icon="clock-outline" style={styles.pendingChip} textStyle={{ color: '#856404' }}>
+              Admin Review Pending
+            </Chip>
+          )}
+
+          {doc.publish_status === 'published' && (
+            <Chip compact icon="check-circle" style={styles.publishedChip} textStyle={{ color: '#155724' }}>
+              Published Publicly
+            </Chip>
+          )}
         </View>
 
         <Text variant="bodySmall" style={styles.uploadedAt}>
-          Uploaded: {new Date(doc.uploaded_at).toLocaleDateString('en-IN')}
+          Uploaded: {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-IN') : 'Recently'}
         </Text>
+
+        <View style={styles.actionRow}>
+          <Button 
+            mode={doc.summary_generated ? "contained" : "outlined"}
+            onPress={() => handleViewSummary(doc)}
+            disabled={doc.status === 'processing'}
+            textColor={doc.summary_generated ? '#FFFFFF' : colors.primary}
+            buttonColor={doc.summary_generated ? colors.primary : undefined}
+            style={styles.viewSummaryButton}
+            labelStyle={{ fontSize: 13, fontWeight: '600' }}
+          >
+            {doc.summary_generated ? 'View AI Summary & Eligibility' : 'Processing...'}
+          </Button>
+        </View>
       </Card.Content>
-      
-      <Card.Actions>
-        <Button 
-          mode={doc.summary_generated ? "contained" : "outlined"}
-          onPress={() => handleViewSummary(doc)}
-          disabled={doc.status !== 'completed'}
-          textColor={doc.summary_generated ? colors.cardBg : colors.primary}
-          buttonColor={doc.summary_generated ? colors.primary : undefined}
-        >
-          {doc.summary_generated ? 'View AI Summary' : 'Processing...'}
-        </Button>
-      </Card.Actions>
     </Card>
   );
 
@@ -167,7 +187,7 @@ export const DocumentsScreen: React.FC = () => {
       <View style={styles.header}>
         <Text variant="headlineSmall" style={[styles.title, { color: colors.textPrimary }]}>My Documents</Text>
         <Text variant="bodyMedium" style={styles.subtitle}>
-          Upload policy documents for AI-powered analysis
+          Upload policy documents for AI extraction, eligibility criteria & admin publishing
         </Text>
       </View>
 
@@ -181,9 +201,9 @@ export const DocumentsScreen: React.FC = () => {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text variant="bodyLarge">No documents yet</Text>
+              <Text variant="bodyLarge" style={{ color: colors.textPrimary, fontWeight: '600' }}>No documents yet</Text>
               <Text variant="bodyMedium" style={styles.emptySubtext}>
-                Upload your dental insurance or policy documents
+                Upload your dental insurance or scheme PDF documents
               </Text>
             </View>
           }
@@ -196,54 +216,105 @@ export const DocumentsScreen: React.FC = () => {
         onPress={handleUpload}
         loading={isUploading}
         disabled={isUploading}
+        color="#FFFFFF"
       />
 
       <Portal>
-        <Dialog visible={summaryDialogVisible} onDismiss={() => setSummaryDialogVisible(false)}>
-          <Dialog.Title>AI Summary</Dialog.Title>
-          <Dialog.Content>
-            {selectedDoc?.ai_summary ? (
-              <View>
-                {selectedDoc.ai_summary.coverage_summary && (
-                  <View style={styles.summarySection}>
-                    <Text variant="titleSmall" style={styles.sectionTitle}>Coverage</Text>
-                    <Text variant="bodyMedium">{selectedDoc.ai_summary.coverage_summary}</Text>
-                  </View>
-                )}
-                
-                {selectedDoc.ai_summary.exclusions && (
-                  <View style={styles.summarySection}>
-                    <Text variant="titleSmall" style={styles.sectionTitle}>Exclusions</Text>
-                    <Text variant="bodyMedium">{selectedDoc.ai_summary.exclusions}</Text>
-                  </View>
-                )}
-                
-                {selectedDoc.ai_summary.waiting_period && (
-                  <View style={styles.summarySection}>
-                    <Text variant="titleSmall" style={styles.sectionTitle}>Waiting Period</Text>
-                    <Text variant="bodyMedium">{selectedDoc.ai_summary.waiting_period}</Text>
-                  </View>
-                )}
-                
-                {selectedDoc.ai_summary.claims_process && (
-                  <View style={styles.summarySection}>
-                    <Text variant="titleSmall" style={styles.sectionTitle}>Claims Process</Text>
-                    <Text variant="bodyMedium">{selectedDoc.ai_summary.claims_process}</Text>
-                  </View>
-                )}
+        <Dialog 
+          visible={summaryDialogVisible} 
+          onDismiss={() => setSummaryDialogVisible(false)}
+          style={{ backgroundColor: colors.cardBg, borderRadius: 16 }}
+        >
+          <Dialog.Title style={{ color: colors.textPrimary, fontWeight: 'bold' }}>
+            AI Summary & Eligibility Criteria
+          </Dialog.Title>
+          <Dialog.ScrollArea style={{ maxHeight: 380, paddingHorizontal: 16 }}>
+            <ScrollView>
+              {selectedDoc?.ai_summary ? (
+                <View style={{ gap: 14, paddingVertical: 8 }}>
+                  {selectedDoc.ai_summary.coverage_summary && (
+                    <View style={styles.summarySection}>
+                      <Text variant="titleSmall" style={[styles.sectionTitle, { color: colors.primary }]}>
+                        Coverage Summary
+                      </Text>
+                      <Text variant="bodyMedium" style={{ color: colors.textPrimary }}>
+                        {selectedDoc.ai_summary.coverage_summary}
+                      </Text>
+                    </View>
+                  )}
 
-                {selectedDoc.ai_summary.confidence_score && (
-                  <Chip style={styles.confidenceChip}>
-                    Confidence: {selectedDoc.ai_summary.confidence_score}%
-                  </Chip>
-                )}
-              </View>
-            ) : (
-              <ActivityIndicator />
-            )}
-          </Dialog.Content>
+                  {selectedDoc.ai_summary.eligibility_criteria && (
+                    <View style={styles.summarySection}>
+                      <Text variant="titleSmall" style={[styles.sectionTitle, { color: colors.primary }]}>
+                        Eligibility Criteria
+                      </Text>
+                      <Text variant="bodyMedium" style={{ color: colors.textPrimary, lineHeight: 20 }}>
+                        {selectedDoc.ai_summary.eligibility_criteria}
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {selectedDoc.ai_summary.exclusions && (
+                    <View style={styles.summarySection}>
+                      <Text variant="titleSmall" style={[styles.sectionTitle, { color: colors.primary }]}>
+                        Exclusions
+                      </Text>
+                      <Text variant="bodyMedium" style={{ color: colors.textPrimary }}>
+                        {selectedDoc.ai_summary.exclusions}
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {selectedDoc.ai_summary.claims_process && (
+                    <View style={styles.summarySection}>
+                      <Text variant="titleSmall" style={[styles.sectionTitle, { color: colors.primary }]}>
+                        Claims Process
+                      </Text>
+                      <Text variant="bodyMedium" style={{ color: colors.textPrimary }}>
+                        {selectedDoc.ai_summary.claims_process}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.publishBox}>
+                    <Text variant="titleSmall" style={{ fontWeight: 'bold', color: colors.textPrimary }}>
+                      Publish Scheme to Public
+                    </Text>
+                    <Text variant="bodySmall" style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                      Submit this document and AI scheme details to Super Admins & Content Admins for review.
+                    </Text>
+
+                    {selectedDoc.publish_status === 'pending_review' ? (
+                      <Chip icon="clock-outline" style={{ backgroundColor: '#FFF3CD' }} textStyle={{ color: '#856404' }}>
+                        Submitted to Admins for Review
+                      </Chip>
+                    ) : selectedDoc.publish_status === 'published' ? (
+                      <Chip icon="check-circle" style={{ backgroundColor: '#D4EDDA' }} textStyle={{ color: '#155724' }}>
+                        Published Publicly
+                      </Chip>
+                    ) : (
+                      <Button 
+                        mode="contained" 
+                        buttonColor={colors.primary}
+                        loading={isPublishing}
+                        disabled={isPublishing}
+                        onPress={() => handlePublishRequest(selectedDoc)}
+                        labelStyle={{ color: '#FFFFFF', fontWeight: 'bold' }}
+                      >
+                        Publish Scheme to All Users
+                      </Button>
+                    )}
+                  </View>
+                </View>
+              ) : (
+                <ActivityIndicator style={{ marginVertical: 32 }} size="large" />
+              )}
+            </ScrollView>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
-            <Button onPress={() => setSummaryDialogVisible(false)}>Close</Button>
+            <Button onPress={() => setSummaryDialogVisible(false)} textColor={colors.textPrimary}>
+              Close
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -270,7 +341,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginTop: 4,
   },
   listContent: {
-    padding: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
   },
   loader: {
     flex: 1,
@@ -286,38 +358,64 @@ const createStyles = (colors: any) => StyleSheet.create({
   card: {
     marginBottom: 12,
     backgroundColor: colors.cardBg,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    elevation: 1,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  cardContent: {
+    padding: 14,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  fileInfo: {
+  docInfo: {
     flex: 1,
     marginRight: 8,
   },
-  fileMeta: {
+  docName: {
+    fontWeight: 'bold',
+  },
+  docSize: {
     color: colors.textSecondary,
     marginTop: 2,
   },
   statusContainer: {
     flexDirection: 'row',
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: 6,
     marginTop: 8,
   },
   statusChip: {
-    height: 24,
+    height: 26,
   },
   aiChip: {
-    height: 24,
-    backgroundColor: `${colors.secondary}30`,
+    height: 26,
+    backgroundColor: `${colors.primary}15`,
+  },
+  pendingChip: {
+    height: 26,
+    backgroundColor: '#FFF3CD',
+  },
+  publishedChip: {
+    height: 26,
+    backgroundColor: '#D4EDDA',
   },
   uploadedAt: {
     color: colors.textSecondary,
     marginTop: 8,
+    fontSize: 12,
+  },
+  actionRow: {
+    marginTop: 12,
+    width: '100%',
+  },
+  viewSummaryButton: {
+    borderRadius: 10,
+    width: '100%',
   },
   emptyContainer: {
     flex: 1,
@@ -331,11 +429,19 @@ const createStyles = (colors: any) => StyleSheet.create({
     textAlign: 'center',
   },
   summarySection: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   sectionTitle: {
-    color: colors.primary,
+    fontWeight: 'bold',
     marginBottom: 4,
+  },
+  publishBox: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: colors.inputBg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   confidenceChip: {
     alignSelf: 'flex-start',

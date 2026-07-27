@@ -14,7 +14,7 @@ import { EligibilityCheckModal } from '../components/EligibilityCheckModal';
 
 export const HomeScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { user } = useSelector((state: RootState) => state.auth);
   const { schemes, isLoading } = useSelector((state: RootState) => state.schemes);
   const { bookmarks } = useSelector((state: RootState) => state.schemes);
@@ -123,7 +123,7 @@ export const HomeScreen: React.FC = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-                onPress={() => navigation.navigate('SchemeDetail' as never, { schemeId: scheme.id } as never)}
+                onPress={() => navigation.navigate('SchemeDetail', { schemeId: scheme.id })}
               >
                 <Text style={styles.primaryButtonText}>View Details</Text>
               </TouchableOpacity>
@@ -173,8 +173,8 @@ export const HomeScreen: React.FC = () => {
           <View style={styles.headerLeft}>
             <AppLogo size="small" showSparkle={false} />
             <View style={styles.headerText}>
-              <Text style={styles.greeting}>
-                Hello, {user?.name?.split(' ')[0] || 'User'}
+              <Text style={styles.greeting} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                Hello, {user?.name || 'User'}
               </Text>
               <Text style={styles.subtitle}>
                 Find dental health schemes
@@ -227,29 +227,33 @@ const createStyles = (colors: any) => StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
   },
   headerText: {
     justifyContent: 'center',
+    flex: 1,
   },
   greeting: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.textPrimary,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -257,17 +261,17 @@ const createStyles = (colors: any) => StyleSheet.create({
     position: 'relative',
   },
   notificationIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
   },
   notificationIconImage: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
   },
   badge: {
     position: 'absolute',
@@ -280,125 +284,128 @@ const createStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
   },
   badgeText: {
-    color: colors.cardBg,
+    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: 'bold',
   },
   quickActions: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 28,
+    gap: 10,
+    marginBottom: 24,
   },
   actionCard: {
     flex: 1,
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: colors.border,
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   actionContent: {
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   actionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
   actionIconText: {
-    fontSize: 24,
+    fontSize: 22,
   },
   actionIconImage: {
-    width: 28,
-    height: 28,
+    width: 24,
+    height: 24,
   },
   actionText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.textPrimary,
     textAlign: 'center',
   },
   section: {
-    marginBottom: 28,
+    marginBottom: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.textPrimary,
   },
   viewAll: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.primary,
+    paddingHorizontal: 4,
   },
   loader: {
     marginVertical: 24,
   },
   schemeCard: {
     backgroundColor: colors.cardBg,
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 16,
+    padding: 14,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.border,
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   schemeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   schemeInfo: {
     flex: 1,
     marginRight: 8,
   },
   schemeName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     color: colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   typeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 8,
+    alignSelf: 'flex-start',
   },
   typeText: {
     fontSize: 11,
     fontWeight: '600',
   },
   ministryText: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
   },
   description: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: 18,
+    marginBottom: 10,
   },
   coverage: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   cardActions: {
     flexDirection: 'row',
@@ -407,26 +414,30 @@ const createStyles = (colors: any) => StyleSheet.create({
   secondaryButton: {
     flex: 1,
     paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingHorizontal: 6,
+    borderRadius: 10,
     backgroundColor: colors.inputBg,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   secondaryButtonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
+    textAlign: 'center',
   },
   primaryButton: {
     flex: 1,
     paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingHorizontal: 6,
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   primaryButtonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.cardBg,
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   bookmarkCard: {
     flexDirection: 'row',

@@ -48,15 +48,16 @@ const storage = {
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-// For development, use the machine's LAN IP so physical devices can reach the backend.
+// For development, use EXPO_PUBLIC_DEV_API_URL so physical devices can reach the backend.
+// Set this in mobile/.env to your machine's LAN IP (e.g. http://10.182.123.32:8000/api/v1).
 // localhost only works for web; Android emulators need 10.0.2.2; physical devices need the LAN IP.
+const DEV_API_URL = process.env.EXPO_PUBLIC_DEV_API_URL || 'http://localhost:8000/api/v1';
+
 const getDevelopmentApiUrl = (): string => {
   if (Platform.OS === 'web') {
     return 'http://localhost:8000/api/v1';
   }
-  // For Expo Go on physical devices, use the machine's LAN IP
-  // Current PC IP: 10.196.46.32 (Wi-Fi adapter)
-  return 'http://10.196.46.32:8000/api/v1';
+  return DEV_API_URL;
 };
 
 const FINAL_API_URL = __DEV__ ? getDevelopmentApiUrl() : API_BASE_URL;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
 import { 
   Text, 
   Card, 
@@ -83,7 +83,7 @@ export const SchemesScreen: React.FC = () => {
 
   const renderSchemeCard = ({ item: scheme }: { item: Scheme }) => (
     <Card style={styles.card}>
-      <Card.Content>
+      <Card.Content style={styles.cardContent}>
         <View style={styles.cardHeader}>
           <View style={styles.titleContainer}>
             <Text 
@@ -91,28 +91,25 @@ export const SchemesScreen: React.FC = () => {
               numberOfLines={2}
               style={{ 
                 color: colors.textPrimary,
-                fontWeight: '600',
+                fontWeight: 'bold',
                 lineHeight: 22,
-                letterSpacing: 0.2
               }}
             >
               {scheme.name}
             </Text>
             <Text 
               variant="bodySmall" 
-              style={[styles.ministryText, { 
-                fontWeight: '500',
-                letterSpacing: 0.1
-              }]}
+              style={[styles.ministryText, { color: colors.textSecondary, marginTop: 2 }]}
             >
               {scheme.ministry || scheme.type}
             </Text>
           </View>
           <IconButton
             icon={scheme.is_bookmarked ? 'bookmark' : 'bookmark-outline'}
-            size={24}
+            size={22}
             iconColor={scheme.is_bookmarked ? colors.primary : colors.textSecondary}
             onPress={() => handleBookmark(scheme)}
+            style={{ margin: 0 }}
           />
         </View>
 
@@ -120,11 +117,7 @@ export const SchemesScreen: React.FC = () => {
           <Chip 
             compact 
             style={styles.typeChip}
-            textStyle={{ 
-              fontSize: 11,
-              fontWeight: '500',
-              letterSpacing: 0.2
-            }}
+            textStyle={{ fontSize: 11, fontWeight: '600', color: colors.primary }}
           >
             {scheme.type}
           </Chip>
@@ -133,11 +126,7 @@ export const SchemesScreen: React.FC = () => {
               key={cat} 
               compact 
               style={styles.categoryChip}
-              textStyle={{ 
-                fontSize: 11,
-                fontWeight: '500',
-                letterSpacing: 0.1
-              }}
+              textStyle={{ fontSize: 11, fontWeight: '500', color: colors.textSecondary }}
             >
               {cat}
             </Chip>
@@ -145,96 +134,47 @@ export const SchemesScreen: React.FC = () => {
         </View>
 
         <Text 
-          variant="bodyMedium" 
+          variant="bodySmall" 
           numberOfLines={2} 
-          style={[styles.description, { 
-            lineHeight: 20,
-            letterSpacing: 0.1,
-            fontWeight: '400'
-          }]}
+          style={[styles.description, { color: colors.textSecondary, lineHeight: 18, marginBottom: 8 }]}
         >
           {scheme.short_description || scheme.description}
         </Text>
 
         {scheme.coverage_amount && (
-          <View style={styles.coverageContainer}>
-            <Text 
-              variant="bodySmall" 
-              style={[styles.coverageLabel, { 
-                fontWeight: '500',
-                letterSpacing: 0.1
-              }]}
-            >
-              Coverage:
-            </Text>
-            <Text 
-              variant="bodyMedium" 
-              style={[styles.coverageAmount, { 
-                fontWeight: '700',
-                letterSpacing: 0.2
-              }]}
-            >
+          <View style={styles.coverageStrip}>
+            <Text style={styles.coverageLabel}>Coverage:</Text>
+            <Text style={styles.coverageAmount}>
               ₹{scheme.coverage_amount.toLocaleString()}
             </Text>
           </View>
         )}
 
-        {scheme.services_covered.length > 0 && (
-          <View style={styles.servicesContainer}>
-            <Text 
-              variant="bodySmall" 
-              style={[styles.servicesLabel, { 
-                fontWeight: '500',
-                letterSpacing: 0.1
-              }]}
-            >
-              Services:
+        <View style={styles.cardActionsRow}>
+          <TouchableOpacity
+            style={styles.secondaryCardButton}
+            onPress={() => {
+              setSelectedScheme(scheme);
+              setEligibilityModalVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.secondaryCardButtonText, { color: colors.primary }]}>
+              Check Eligibility
             </Text>
-            <Text 
-              variant="bodySmall" 
-              style={[styles.servicesText, { 
-                lineHeight: 18,
-                letterSpacing: 0.1,
-                fontWeight: '400'
-              }]}
-            >
-              {scheme.services_covered.slice(0, 3).join(', ')}
-              {scheme.services_covered.length > 3 && '...'}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.primaryCardButton, { backgroundColor: colors.primary }]}
+            onPress={() => navigation.navigate('SchemeDetail', { schemeId: scheme.id })}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.primaryCardButtonText}>
+              View Details
             </Text>
-          </View>
-        )}
+          </TouchableOpacity>
+        </View>
       </Card.Content>
-      
-      <Card.Actions>
-        <Button 
-          textColor={colors.primary}
-          style={{ 
-            borderRadius: 8
-          }}
-          labelStyle={{
-            fontWeight: '500'
-          }}
-          onPress={() => {
-            setSelectedScheme(scheme);
-            setEligibilityModalVisible(true);
-          }}
-        >
-          Check Eligibility
-        </Button>
-        <Button 
-          mode="contained" 
-          buttonColor={colors.primary}
-          style={{ 
-            borderRadius: 8
-          }}
-          labelStyle={{
-            fontWeight: '600'
-          }}
-          onPress={() => navigation.navigate('SchemeDetail', { schemeId: scheme.id })}
-        >
-          View Details
-        </Button>
-      </Card.Actions>
     </Card>
   );
 
@@ -249,6 +189,9 @@ export const SchemesScreen: React.FC = () => {
           value={searchQuery}
           style={styles.searchBar}
           onSubmitEditing={() => loadSchemes(1)}
+          inputStyle={{ color: colors.textPrimary }}
+          iconColor={colors.textSecondary}
+          placeholderTextColor={colors.textSecondary}
         />
 
         <View style={styles.filtersContainer}>
@@ -257,9 +200,10 @@ export const SchemesScreen: React.FC = () => {
             onDismiss={() => setShowTypeMenu(false)}
             anchor={
               <Chip 
+                compact
                 onPress={() => setShowTypeMenu(true)}
                 style={[styles.filterChip, { backgroundColor: selectedType !== 'All' ? `${colors.primary}20` : colors.inputBg }]}
-                textStyle={{ color: selectedType !== 'All' ? colors.primary : colors.textPrimary }}
+                textStyle={{ color: selectedType !== 'All' ? colors.primary : colors.textPrimary, fontSize: 12, marginHorizontal: 0 }}
                 selected={selectedType !== 'All'}
               >
                 Type: {selectedType}
@@ -289,9 +233,10 @@ export const SchemesScreen: React.FC = () => {
             onDismiss={() => setShowCategoryMenu(false)}
             anchor={
               <Chip 
+                compact
                 onPress={() => setShowCategoryMenu(true)}
                 style={[styles.filterChip, { backgroundColor: selectedCategory !== 'All' ? `${colors.primary}20` : colors.inputBg }]}
-                textStyle={{ color: selectedCategory !== 'All' ? colors.primary : colors.textPrimary }}
+                textStyle={{ color: selectedCategory !== 'All' ? colors.primary : colors.textPrimary, fontSize: 12, marginHorizontal: 0 }}
                 selected={selectedCategory !== 'All'}
               >
                 Category: {selectedCategory}
@@ -400,9 +345,14 @@ const createStyles = (colors: any) => StyleSheet.create({
   card: {
     marginBottom: 12,
     backgroundColor: colors.cardBg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    elevation: 1,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  cardContent: {
+    padding: 14,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -416,7 +366,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   ministryText: {
     color: colors.textSecondary,
-    marginTop: 2,
+    fontSize: 12,
   },
   chipsContainer: {
     flexDirection: 'row',
@@ -425,37 +375,70 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: 8,
   },
   typeChip: {
-    backgroundColor: `${colors.primary}20`,
+    backgroundColor: `${colors.primary}15`,
   },
   categoryChip: {
-    backgroundColor: `${colors.secondary}30`,
+    backgroundColor: `${colors.secondary}15`,
   },
   description: {
-    marginTop: 4,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
   },
-  coverageContainer: {
+  coverageStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    backgroundColor: `${colors.primary}10`,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
   },
   coverageLabel: {
+    fontSize: 12,
+    fontWeight: '500',
     color: colors.textSecondary,
     marginRight: 4,
   },
   coverageAmount: {
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.primary,
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+    width: '100%',
+  },
+  secondaryCardButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: colors.inputBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryCardButtonText: {
+    fontSize: 12,
     fontWeight: '600',
+    textAlign: 'center',
   },
-  servicesContainer: {
-    marginTop: 8,
+  primaryCardButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  servicesLabel: {
-    color: colors.textSecondary,
-  },
-  servicesText: {
-    color: colors.textPrimary,
-    marginTop: 2,
+  primaryCardButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   loadMoreIndicator: {
     marginVertical: 16,

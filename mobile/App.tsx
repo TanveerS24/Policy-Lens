@@ -6,24 +6,33 @@ import { Provider as ReduxProvider } from 'react-redux';
 import { ToastProvider } from 'react-native-toast-notifications';
 import { store } from './src/redux/store';
 import { AuthProvider } from './src/contexts/AuthContext';
-import { ThemeProvider } from './src/contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
-import { theme } from './src/theme';
+import { getPaperTheme } from './src/theme';
+
+function AppContent() {
+  const { isDark } = useTheme();
+  const paperTheme = getPaperTheme(isDark);
+
+  return (
+    <PaperProvider theme={paperTheme}>
+      <SafeAreaProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <RootNavigator />
+            <StatusBar style={isDark ? 'light' : 'dark'} />
+          </AuthProvider>
+        </ToastProvider>
+      </SafeAreaProvider>
+    </PaperProvider>
+  );
+}
 
 export default function App() {
   return (
     <ReduxProvider store={store}>
       <ThemeProvider>
-        <PaperProvider theme={theme}>
-          <SafeAreaProvider>
-            <ToastProvider>
-              <AuthProvider>
-                <RootNavigator />
-                <StatusBar style="auto" />
-              </AuthProvider>
-            </ToastProvider>
-          </SafeAreaProvider>
-        </PaperProvider>
+        <AppContent />
       </ThemeProvider>
     </ReduxProvider>
   );

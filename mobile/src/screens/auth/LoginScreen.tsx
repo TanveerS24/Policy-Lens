@@ -7,7 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
-import { Text, TextInput, Button, Snackbar } from 'react-native-paper';
+import { Text, TextInput, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -71,55 +71,67 @@ export const LoginScreen: React.FC = () => {
             {/* Glassmorphism Card */}
             <View style={styles.card}>
               <View style={styles.form}>
-                <TextInput
-                  label="Mobile or Email"
-                  value={mobileOrEmail}
-                  onChangeText={setMobileOrEmail}
-                  mode="outlined"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  style={styles.input}
-                  outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
-                  textColor={colors.textPrimary}
-                  theme={{
-                    colors: {
-                      surface: colors.inputBg,
-                      onSurface: colors.textPrimary,
-                      onSurfaceVariant: colors.textSecondary,
-                      primary: colors.primary,
-                    },
-                  }}
-                />
+                <View style={styles.inputGroup}>
+                  <Text variant="titleSmall" style={styles.inputLabel}>
+                    Mobile or Email
+                  </Text>
+                  <TextInput
+                    placeholder="Enter mobile or email"
+                    value={mobileOrEmail}
+                    onChangeText={setMobileOrEmail}
+                    mode="outlined"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={styles.input}
+                    outlineColor={colors.border}
+                    activeOutlineColor={colors.primary}
+                    textColor={colors.textPrimary}
+                    placeholderTextColor={colors.textSecondary}
+                    theme={{
+                      colors: {
+                        surface: colors.inputBg,
+                        onSurface: colors.textPrimary,
+                        onSurfaceVariant: colors.textSecondary,
+                        primary: colors.primary,
+                      },
+                    }}
+                  />
+                </View>
 
-                <TextInput
-                  label="Password"
-                  value={password}
-                  onChangeText={setPassword}
-                  mode="outlined"
-                  secureTextEntry={!showPassword}
-                  right={
-                    <TextInput.Icon
-                      icon={showPassword ? 'eye-off' : 'eye'}
-                      onPress={() => setShowPassword(!showPassword)}
-                      color={colors.textSecondary}
-                    />
-                  }
-                  style={styles.input}
-                  outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
-                  textColor={colors.textPrimary}
-                  theme={{
-                    colors: {
-                      surface: colors.inputBg,
-                      onSurface: colors.textPrimary,
-                      onSurfaceVariant: colors.textSecondary,
-                      primary: colors.primary,
-                    },
-                  }}
-                />
+                <View style={styles.inputGroup}>
+                  <Text variant="titleSmall" style={styles.inputLabel}>
+                    Password
+                  </Text>
+                  <TextInput
+                    placeholder="Enter password"
+                    value={password}
+                    onChangeText={setPassword}
+                    mode="outlined"
+                    secureTextEntry={!showPassword}
+                    right={
+                      <TextInput.Icon
+                        icon={showPassword ? 'eye-off' : 'eye'}
+                        onPress={() => setShowPassword(!showPassword)}
+                        color={colors.textSecondary}
+                      />
+                    }
+                    style={styles.input}
+                    outlineColor={colors.border}
+                    activeOutlineColor={colors.primary}
+                    textColor={colors.textPrimary}
+                    placeholderTextColor={colors.textSecondary}
+                    theme={{
+                      colors: {
+                        surface: colors.inputBg,
+                        onSurface: colors.textPrimary,
+                        onSurfaceVariant: colors.textSecondary,
+                        primary: colors.primary,
+                      },
+                    }}
+                  />
+                </View>
 
-                <TouchableOpacity style={styles.forgotPassword}>
+                <TouchableOpacity style={styles.forgotPassword} activeOpacity={0.7}>
                   <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
                 </TouchableOpacity>
 
@@ -142,7 +154,7 @@ export const LoginScreen: React.FC = () => {
             {/* Register Link */}
             <View style={styles.registerContainer}>
               <Text style={styles.registerText}>Don't have an account?</Text>
-              <TouchableOpacity onPress={handleRegister}>
+              <TouchableOpacity onPress={handleRegister} activeOpacity={0.7} style={styles.registerTouch}>
                 <Text style={styles.registerLink}>Create Account</Text>
               </TouchableOpacity>
             </View>
@@ -178,92 +190,124 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 24,
     justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 6,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
+    paddingHorizontal: 12,
   },
   card: {
     backgroundColor: colors.cardBg,
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
     borderWidth: 1,
     borderColor: colors.border,
     shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 24,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
   },
   form: {
-    gap: 16,
+    gap: 14,
+  },
+  inputGroup: {
+    gap: 4,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 2,
   },
   input: {
     backgroundColor: colors.inputBg,
+    fontSize: 15,
   },
   forgotPassword: {
-    alignSelf: 'flex-end',
-    marginTop: -8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    width: '100%',
+    marginVertical: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
   },
   forgotPasswordText: {
     color: colors.primary,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   loginButton: {
-    marginTop: 8,
-    borderRadius: 16,
+    marginTop: 6,
+    borderRadius: 14,
     overflow: 'hidden',
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   loginButtonDisabled: {
     opacity: 0.6,
   },
   buttonGradient: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-  },
-  buttonText: {
-    color: colors.cardBg,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  registerContainer: {
-    flexDirection: 'row',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.primary,
+    width: '100%',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  registerContainer: {
     marginTop: 24,
-    gap: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingHorizontal: 12,
+  },
+  registerTouch: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   registerText: {
     color: colors.textSecondary,
     fontSize: 14,
+    textAlign: 'center',
   },
   registerLink: {
     color: colors.primary,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
+    textAlign: 'center',
   },
   snackbar: {
-    backgroundColor: colors.cardBg,
+    backgroundColor: colors.error,
     borderRadius: 12,
   },
 });

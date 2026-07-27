@@ -1,10 +1,14 @@
 """Application settings and configuration."""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import List
-from pydantic_settings import BaseSettings
-from pydantic import Field
 
+from pydantic import Field
+from pydantic_settings import BaseSettings
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+ROOT_DIR = BASE_DIR.parent
 
 class Settings(BaseSettings):
     """Application configuration settings."""
@@ -12,7 +16,7 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "DentalSchemes India"
     DEBUG: bool = Field(default=False)
-    SECRET_KEY: str = Field(default="change-me-in-production")
+    SECRET_KEY: str = Field(default="dev-secret-key-change-in-production")
 
     # Database
     DATABASE_URL: str = Field(default="postgresql://postgres:postgres@localhost:5432/dentalschemes")
@@ -21,13 +25,13 @@ class Settings(BaseSettings):
     REDIS_URL: str = Field(default="redis://localhost:6379/0")
 
     # JWT
-    JWT_SECRET_KEY: str = Field(default="jwt-secret-change-me")
+    JWT_SECRET_KEY: str = Field(default="dev-jwt-secret-key-change-in-production")
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60)
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=30)
 
     # CORS
-    CORS_ORIGINS: str = Field(default="http://localhost:3000,http://localhost:5173,http://localhost:8081,http://127.0.0.1:8081,exp://localhost:8081")
+    CORS_ORIGINS: str = Field(default="http://localhost:3000,http://localhost:5173,http://localhost:8000,http://localhost:8081,http://127.0.0.1:8000,http://127.0.0.1:8081,exp://localhost:8081,http://192.168.0.101:8081,http://192.168.0.101:8000,http://192.168.0.101:5173,http://192.168.0.101:3000,exp://192.168.0.101:8081,http://172.31.144.1:8081,http://172.31.144.1:8000,http://172.31.144.1:5173,http://172.31.144.1:3000,exp://172.31.144.1:8081")
 
     
     @property
@@ -64,8 +68,13 @@ class Settings(BaseSettings):
     LOCKOUT_DURATION_MINUTES: int = Field(default=30)
 
     model_config = {
-        "env_file": ".env",
+        "env_file": (
+            str(BASE_DIR / ".env"),
+            str(ROOT_DIR / ".env"),
+            ".env",
+        ),
         "env_file_encoding": "utf-8",
+        "extra": "ignore",
     }
 
 

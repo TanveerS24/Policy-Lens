@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { currentColors } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface AppLogoProps {
   size?: 'small' | 'default' | 'large';
@@ -17,6 +17,7 @@ export const AppLogo: React.FC<AppLogoProps> = ({
   size = 'default',
   showSparkle = true 
 }) => {
+  const { colors } = useTheme();
   const dimensions = sizeMap[size];
   const halfContainer = dimensions.container / 2;
 
@@ -30,7 +31,8 @@ export const AppLogo: React.FC<AppLogoProps> = ({
             width: dimensions.container, 
             height: dimensions.container,
             borderRadius: halfContainer,
-            backgroundColor: currentColors.primary,
+            backgroundColor: colors.primary,
+            shadowColor: colors.primary,
           }
         ]}
       >
@@ -54,7 +56,6 @@ const styles = StyleSheet.create({
   logoCircle: {
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: currentColors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,

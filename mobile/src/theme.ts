@@ -1,79 +1,84 @@
 import { MD3DarkTheme, MD3LightTheme } from 'react-native-paper';
 
-// Dark Ember Theme - Dark mode with orange accents
-export const darkEmberTheme = {
-  ...MD3DarkTheme,
-  colors: {
-    ...MD3DarkTheme.colors,
-    primary: '#FF6B35',
-    primaryContainer: 'rgba(255, 107, 53, 0.15)',
-    secondary: '#FF7F52',
-    secondaryContainer: 'rgba(255, 127, 82, 0.15)',
-    surface: 'rgba(42, 26, 21, 0.6)',
-    surfaceVariant: '#2A1A15',
-    background: '#1A1A1A',
-    error: '#DC2626',
-    errorContainer: 'rgba(220, 38, 38, 0.15)',
-    onPrimary: '#FFFFFF',
-    onSurface: '#F5F5F5',
-    onSurfaceVariant: '#A0A0A0',
-    outline: 'rgba(255, 107, 53, 0.2)',
-    outlineVariant: 'rgba(255, 107, 53, 0.1)',
-    inverseSurface: '#F5F5F5',
-    inverseOnSurface: '#1A1A1A',
-    scrim: 'rgba(0, 0, 0, 0.7)',
-    elevation: {
-      level0: 'transparent',
-      level1: 'rgba(42, 26, 21, 0.4)',
-      level2: 'rgba(42, 26, 21, 0.5)',
-      level3: 'rgba(42, 26, 21, 0.6)',
-      level4: 'rgba(42, 26, 21, 0.7)',
-      level5: 'rgba(42, 26, 21, 0.8)',
+// Get the Paper theme dynamically based on current theme mode
+export const getPaperTheme = (isDark: boolean) => {
+  const base = isDark ? MD3DarkTheme : MD3LightTheme;
+
+  if (isDark) {
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: '#66D9EF',
+        primaryContainer: 'rgba(102, 217, 239, 0.15)',
+        secondary: '#A6E22E',
+        secondaryContainer: 'rgba(166, 226, 46, 0.15)',
+        surface: '#2D2D2D',
+        surfaceVariant: '#3D3D3D',
+        background: '#1E1E1E',
+        error: '#FF5370',
+        errorContainer: 'rgba(255, 83, 112, 0.15)',
+        onPrimary: '#FFFFFF',
+        onSurface: '#FFFFFF',
+        onSurfaceVariant: '#B4B4B4',
+        outline: 'rgba(102, 217, 239, 0.2)',
+        outlineVariant: 'rgba(102, 217, 239, 0.1)',
+        inverseSurface: '#FFFFFF',
+        inverseOnSurface: '#1E1E1E',
+        scrim: 'rgba(0, 0, 0, 0.7)',
+        elevation: {
+          level0: 'transparent',
+          level1: '#2D2D2D',
+          level2: '#333333',
+          level3: '#383838',
+          level4: '#3D3D3D',
+          level5: '#424242',
+        },
+      },
+      roundness: 16,
+    };
+  }
+
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary: '#2563EB',
+      primaryContainer: 'rgba(37, 99, 235, 0.15)',
+      secondary: '#60A5FA',
+      secondaryContainer: 'rgba(96, 165, 250, 0.15)',
+      surface: '#FFFFFF',
+      surfaceVariant: '#F3F4F6',
+      background: '#F5F7FA',
+      error: '#DC2626',
+      errorContainer: 'rgba(220, 38, 38, 0.15)',
+      onPrimary: '#FFFFFF',
+      onSurface: '#111827',
+      onSurfaceVariant: '#4B5563',
+      outline: 'rgba(37, 99, 235, 0.2)',
+      outlineVariant: 'rgba(37, 99, 235, 0.1)',
+      inverseSurface: '#111827',
+      inverseOnSurface: '#F5F7FA',
+      scrim: 'rgba(0, 0, 0, 0.5)',
+      elevation: {
+        level0: 'transparent',
+        level1: '#FFFFFF',
+        level2: '#FFFFFF',
+        level3: '#FFFFFF',
+        level4: '#FFFFFF',
+        level5: '#FFFFFF',
+      },
     },
-  },
-  roundness: 16,
+    roundness: 16,
+  };
 };
 
-// Sky Blue Theme - Light mode with blue accents
-export const skyBlueTheme = {
-  ...MD3LightTheme,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: '#4A90E2',
-    primaryContainer: 'rgba(74, 144, 226, 0.15)',
-    secondary: '#6AA8E8',
-    secondaryContainer: 'rgba(106, 168, 232, 0.15)',
-    surface: '#FFFFFF',
-    surfaceVariant: '#F8FAFC',
-    background: '#F4F9FF',
-    error: '#DC2626',
-    errorContainer: 'rgba(220, 38, 38, 0.15)',
-    onPrimary: '#FFFFFF',
-    onSurface: '#1A2332',
-    onSurfaceVariant: '#64748B',
-    outline: 'rgba(74, 144, 226, 0.2)',
-    outlineVariant: 'rgba(74, 144, 226, 0.1)',
-    inverseSurface: '#1A2332',
-    inverseOnSurface: '#F4F9FF',
-    scrim: 'rgba(0, 0, 0, 0.5)',
-    elevation: {
-      level0: 'transparent',
-      level1: '#FFFFFF',
-      level2: '#FFFFFF',
-      level3: '#FFFFFF',
-      level4: '#FFFFFF',
-      level5: '#FFFFFF',
-    },
-  },
-  roundness: 16,
-};
-
-// Default to Dark Ember theme
-export const theme = darkEmberTheme;
+// Default export for backward compatibility (light theme)
+export const theme = getPaperTheme(false);
 
 // Color constants for both themes
 export const colors = {
-  // Dark Ember
+  // Dark Ember (kept for reference, not actively used)
   darkEmber: {
     primary: '#FF6B35',
     primaryDark: '#E85A28',
@@ -90,7 +95,7 @@ export const colors = {
     shadow: 'rgba(0, 0, 0, 0.3)',
     buttonShadow: 'rgba(255, 107, 53, 0.3)',
   },
-  // Sky Blue
+  // Sky Blue (kept for reference, not actively used)
   skyBlue: {
     primary: '#4A90E2',
     primaryDark: '#3A7BC8',
@@ -114,5 +119,5 @@ export const colors = {
   info: '#4A90E2',
 };
 
-// Current theme colors (Dark Ember by default)
+// Current theme colors (Dark Ember by default — kept for backward compat)
 export const currentColors = colors.darkEmber;

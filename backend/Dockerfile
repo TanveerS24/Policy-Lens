@@ -8,6 +8,8 @@ RUN apk add --no-cache \
     musl-dev \
     libpq-dev \
     tesseract-ocr \
+    tesseract-ocr-data-eng \
+    poppler-utils \
     && rm -rf /var/cache/apk/*
 
 # Copy requirements first for better caching

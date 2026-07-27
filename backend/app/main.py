@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
             if "schemes" in existing_tables:
                 columns = [col["name"] for col in inspector.get_columns("schemes")]
                 
-                # Add missing columns
+                # Add missing columns for schemes
                 migrations = [
                     ("full_document_text", "TEXT"),
                     ("original_document_path", "VARCHAR(500)"),
@@ -46,11 +46,31 @@ async def lifespan(app: FastAPI):
                             text(f"ALTER TABLE schemes ADD COLUMN {column_name} {column_type}")
                         )
                         conn.commit()
-                        logger.info(
-                            "migration_applied",
-                            column=column_name,
-                            table="schemes",
+                        logger.info("migration_applied", column=column_name, table="schemes")
+
+            if "documents" in existing_tables:
+                doc_columns = [col["name"] for col in inspector.get_columns("documents")]
+                doc_migrations = [
+                    ("publish_status", "VARCHAR(30) DEFAULT 'draft'"),
+                    ("publish_requested", "BOOLEAN DEFAULT FALSE"),
+                    ("publish_requested_at", "TIMESTAMP WITH TIME ZONE"),
+                ]
+                for col_name, col_type in doc_migrations:
+                    if col_name not in doc_columns:
+                        conn.execute(
+                            text(f"ALTER TABLE documents ADD COLUMN {col_name} {col_type}")
                         )
+                        conn.commit()
+                        logger.info("migration_applied", column=col_name, table="documents")
+
+            if "ai_summaries" in existing_tables:
+                ai_columns = [col["name"] for col in inspector.get_columns("ai_summaries")]
+                if "eligibility_criteria" not in ai_columns:
+                    conn.execute(
+                        text("ALTER TABLE ai_summaries ADD COLUMN eligibility_criteria TEXT")
+                    )
+                    conn.commit()
+                    logger.info("migration_applied", column="eligibility_criteria", table="ai_summaries")
     except Exception as exc:
         logger.error("startup_migration_failed", error=str(exc))
 

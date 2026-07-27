@@ -37,6 +37,11 @@ class Document(Base):
     status = Column(String(20), default="pending")
     virus_scan_result = Column(String(20), nullable=True)  # clean, infected, error
 
+    # Publish Status
+    publish_status = Column(String(30), default="draft")  # draft, pending_review, published, rejected
+    publish_requested = Column(Boolean, default=False)
+    publish_requested_at = Column(DateTime, nullable=True)
+
     # Metadata
     uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     processed_at = Column(DateTime, nullable=True)
@@ -63,6 +68,7 @@ class AISummary(Base):
     waiting_period = Column(Text, nullable=True)
     claims_process = Column(Text, nullable=True)
     renewal_conditions = Column(Text, nullable=True)
+    eligibility_criteria = Column(Text, nullable=True)
 
     # Raw structured data
     coverage_details = Column(JSON, default=dict)  # {amount, services, frequency}
