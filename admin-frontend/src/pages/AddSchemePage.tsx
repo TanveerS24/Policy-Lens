@@ -13,6 +13,16 @@ interface ExtractedData {
   name: string
   code: string
   type: string
+  ministry?: string
+  state?: string
+  coverage_amount?: number
+  min_age?: number
+  max_age?: number
+  target_categories?: string[]
+  services_covered?: string[]
+  required_documents?: string[]
+  website?: string
+  helpline?: string
   full_document_text?: string
 }
 
@@ -129,17 +139,27 @@ export const AddSchemePage: React.FC = () => {
       setError(null)
       setFormData(prev => ({
         ...prev,
-        name: data.name,
-        code: data.code,
-        type: data.type,
-        eligibility_criteria: data.eligibility_criteria,
-        about_scheme: data.about_scheme,
-        full_document_text: data.full_document_text || ''
+        name: data.name || prev.name,
+        code: data.code || prev.code,
+        type: data.type || prev.type,
+        ministry: data.ministry || prev.ministry,
+        state: data.state || prev.state,
+        eligibility_criteria: data.eligibility_criteria || prev.eligibility_criteria,
+        about_scheme: data.about_scheme || prev.about_scheme,
+        coverage_amount: data.coverage_amount ?? prev.coverage_amount,
+        min_age: data.min_age ?? prev.min_age,
+        max_age: data.max_age ?? prev.max_age,
+        target_categories: data.target_categories || prev.target_categories,
+        services_covered: data.services_covered || prev.services_covered,
+        required_documents: data.required_documents || prev.required_documents,
+        website: data.website || prev.website,
+        helpline: data.helpline || prev.helpline,
+        full_document_text: data.full_document_text || prev.full_document_text
       }))
-      showToast('success', 'PDF processed successfully! AI extracted the scheme details.')
+      showToast('success', 'PDF processed successfully! AI extracted all scheme details.')
     },
-    onError: (error: Error) => {
-      const msg = error.message || 'Failed to extract data from PDF. Please ensure Ollama is running on localhost:11434'
+    onError: (error: any) => {
+      const msg = error.response?.data?.detail || error.message || 'Failed to extract data from PDF.'
       setError(msg)
       showToast('error', msg)
     }
@@ -151,17 +171,27 @@ export const AddSchemePage: React.FC = () => {
       setError(null)
       setFormData(prev => ({
         ...prev,
-        name: data.name,
-        code: data.code,
-        type: data.type,
-        eligibility_criteria: data.eligibility_criteria,
-        about_scheme: data.about_scheme,
-        full_document_text: data.full_document_text || ''
+        name: data.name || prev.name,
+        code: data.code || prev.code,
+        type: data.type || prev.type,
+        ministry: data.ministry || prev.ministry,
+        state: data.state || prev.state,
+        eligibility_criteria: data.eligibility_criteria || prev.eligibility_criteria,
+        about_scheme: data.about_scheme || prev.about_scheme,
+        coverage_amount: data.coverage_amount ?? prev.coverage_amount,
+        min_age: data.min_age ?? prev.min_age,
+        max_age: data.max_age ?? prev.max_age,
+        target_categories: data.target_categories || prev.target_categories,
+        services_covered: data.services_covered || prev.services_covered,
+        required_documents: data.required_documents || prev.required_documents,
+        website: data.website || prev.website,
+        helpline: data.helpline || prev.helpline,
+        full_document_text: data.full_document_text || prev.full_document_text
       }))
       showToast('success', 'Content regenerated successfully!')
     },
-    onError: (error: Error) => {
-      const msg = error.message || 'Failed to regenerate content. Please ensure Ollama is running on localhost:11434'
+    onError: (error: any) => {
+      const msg = error.response?.data?.detail || error.message || 'Failed to regenerate content.'
       setError(msg)
       showToast('error', msg)
     }
@@ -228,8 +258,14 @@ export const AddSchemePage: React.FC = () => {
   }
 
   const handlePublish = () => {
-    // Remove all validation - allow publishing with any data
-    publishMutation.mutate({ ...formData, file_id: uploadedFileId })
+    const payload = {
+      ...formData,
+      file_id: uploadedFileId,
+      coverage_amount: formData.coverage_amount === '' || formData.coverage_amount === null || formData.coverage_amount === undefined ? null : Number(formData.coverage_amount),
+      min_age: formData.min_age === '' || formData.min_age === null || formData.min_age === undefined ? null : Number(formData.min_age),
+      max_age: formData.max_age === '' || formData.max_age === null || formData.max_age === undefined ? null : Number(formData.max_age),
+    }
+    publishMutation.mutate(payload as any)
   }
 
   const handleInputChange = (field: keyof SchemeFormData, value: string | number | string[]) => {
@@ -269,7 +305,6 @@ export const AddSchemePage: React.FC = () => {
         </div>
       )}
 
-      {/* Processing State */}
       {/* Upload Progress */}
       {uploadMutation.isPending && (
         <div className="card p-8 mb-6">
@@ -284,7 +319,6 @@ export const AddSchemePage: React.FC = () => {
               Uploading file to server. Please wait...
             </p>
             
-            {/* Progress Bar */}
             <div className="max-w-md mx-auto">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
                 <span>Uploading</span>
@@ -312,14 +346,13 @@ export const AddSchemePage: React.FC = () => {
               Processing with AI...
             </h3>
             <p className="text-sm text-gray-500 max-w-md mx-auto mb-4">
-              Extracting text and querying AI for eligibility criteria and scheme details. This may take 30-60 seconds.
+              Extracting text and querying Ollama AI for 4-5 line summary, eligibility criteria, and scheme parameters. This may take 20-40 seconds.
             </p>
             
-            {/* Processing Progress */}
             <div className="max-w-md mx-auto">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
                 <span>AI Processing</span>
-                <span>Processing...</span>
+                <span>Extracting...</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                 <div className="bg-purple-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }} />
@@ -386,71 +419,70 @@ export const AddSchemePage: React.FC = () => {
         </div>
       )}
 
-      {/* Extracted Content Editor */}
+      {/* Extracted Content Form */}
       {formData.name && (
         <>
-          {/* Basic Info - Only show fields with values */}
+          {/* Basic Info */}
           <div className="card p-6 mb-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {(formData.name || formData.name === '') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Scheme Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    className="input-field"
-                  />
-                </div>
-              )}
-              {(formData.code || formData.code === '') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Scheme Code
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.code}
-                    onChange={(e) => handleInputChange('code', e.target.value)}
-                    className="input-field"
-                  />
-                </div>
-              )}
-              {(formData.type || formData.type === '') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Type
-                  </label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => handleInputChange('type', e.target.value)}
-                    className="input-field"
-                  >
-                    <option value="national">National</option>
-                    <option value="state">State</option>
-                    <option value="central">Central</option>
-                    <option value="ngo">NGO</option>
-                    <option value="private">Private</option>
-                  </select>
-                </div>
-              )}
-              {(formData.ministry || formData.ministry === '') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ministry/Department
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.ministry}
-                    onChange={(e) => handleInputChange('ministry', e.target.value)}
-                    className="input-field"
-                    placeholder="e.g., Ministry of Health"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Scheme Name <span className="text-red-500 font-bold">*</span> <span className="text-xs text-red-600 font-normal">(Required)</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  className="input-field"
+                  placeholder="e.g., National Dental Health Scheme"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Scheme Code <span className="text-red-500 font-bold">*</span> <span className="text-xs text-red-600 font-normal">(Required)</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.code}
+                  onChange={(e) => handleInputChange('code', e.target.value)}
+                  className="input-field font-mono"
+                  placeholder="e.g., DPM-2026-001"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Type <span className="text-red-500 font-bold">*</span> <span className="text-xs text-red-600 font-normal">(Required)</span>
+                </label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => handleInputChange('type', e.target.value)}
+                  className="input-field"
+                >
+                  <option value="national">National</option>
+                  <option value="state">State</option>
+                  <option value="central">Central</option>
+                  <option value="ngo">NGO</option>
+                  <option value="private">Private</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ministry/Department
+                </label>
+                <input
+                  type="text"
+                  value={formData.ministry}
+                  onChange={(e) => handleInputChange('ministry', e.target.value)}
+                  className="input-field"
+                  placeholder="e.g., Ministry of Health & Family Welfare"
+                />
+              </div>
             </div>
           </div>
 
@@ -490,7 +522,7 @@ export const AddSchemePage: React.FC = () => {
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Eligibility Criteria
+                Eligibility Criteria *
               </button>
               <button
                 onClick={() => setActiveSection('about')}
@@ -500,7 +532,7 @@ export const AddSchemePage: React.FC = () => {
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                About the Scheme
+                About the Scheme *
               </button>
               <button
                 onClick={() => setActiveSection('full_document')}
@@ -518,18 +550,18 @@ export const AddSchemePage: React.FC = () => {
             {activeSection === 'eligibility' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Eligibility Criteria
-                  <span className="text-xs text-gray-500 ml-2">(You can edit this)</span>
+                  Eligibility Criteria <span className="text-red-500 font-bold">*</span>
+                  <span className="text-xs text-gray-500 ml-2">(Auto-extracted bullet points, editable)</span>
                 </label>
                 <textarea
                   value={formData.eligibility_criteria}
                   onChange={(e) => handleInputChange('eligibility_criteria', e.target.value)}
                   rows={12}
                   className="input-field font-mono text-sm"
-                  placeholder="Eligibility criteria will appear here after PDF upload..."
+                  placeholder="Eligibility criteria bullet points..."
                 />
                 <p className="mt-2 text-xs text-gray-500">
-                  This section focuses on age group, gender, income criteria, category requirements, and other eligibility conditions.
+                  Clearly details age, income limits, target categories, residential criteria, and documentation conditions.
                 </p>
               </div>
             )}
@@ -538,18 +570,18 @@ export const AddSchemePage: React.FC = () => {
             {activeSection === 'about' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  About the Scheme
-                  <span className="text-xs text-gray-500 ml-2">(You can edit this)</span>
+                  About the Scheme (Concise 4-5 line summary) <span className="text-red-500 font-bold">*</span>
+                  <span className="text-xs text-gray-500 ml-2">(Editable)</span>
                 </label>
                 <textarea
                   value={formData.about_scheme}
                   onChange={(e) => handleInputChange('about_scheme', e.target.value)}
-                  rows={12}
+                  rows={6}
                   className="input-field font-mono text-sm"
-                  placeholder="Scheme description will appear here after PDF upload..."
+                  placeholder="Concise 4-5 line scheme summary..."
                 />
                 <p className="mt-2 text-xs text-gray-500">
-                  This section describes the purpose, benefits, department/ministry, and target beneficiaries.
+                  A concise 4-5 line description covering purpose, major dental benefits, and target audience.
                 </p>
               </div>
             )}
@@ -557,6 +589,22 @@ export const AddSchemePage: React.FC = () => {
             {/* Full Document Section */}
             {activeSection === 'full_document' && (
               <div>
+                {/* Download PDF button if original file exists */}
+                {uploadedFile && (
+                  <div className="mb-4">
+                    <a
+                      href={URL.createObjectURL(uploadedFile)}
+                      download={uploadedFile.name}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors"
+                    >
+                      <FileText className="h-4 w-4 mr-2 text-blue-600" />
+                      Download Original Scheme PDF Document ({uploadedFile.name})
+                    </a>
+                  </div>
+                )}
+
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Full Document Text
                   <span className="text-xs text-gray-500 ml-2">(Auto-extracted from PDF, editable)</span>
@@ -564,93 +612,87 @@ export const AddSchemePage: React.FC = () => {
                 <textarea
                   value={formData.full_document_text}
                   onChange={(e) => handleInputChange('full_document_text', e.target.value)}
-                  rows={16}
+                  rows={14}
                   className="input-field font-mono text-sm"
                   placeholder="Full document text will appear here after PDF processing..."
                 />
                 <p className="mt-2 text-xs text-gray-500">
-                  This is the complete text extracted from the uploaded PDF. It will be displayed in the mobile app for users to read the full document.
+                  Complete text extracted from the uploaded PDF for full document viewing.
                 </p>
               </div>
             )}
           </div>
 
-          {/* Additional Details - Only show fields with values */}
+          {/* Additional Details */}
           <div className="card p-6 mb-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Details</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Parameters</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {(formData.coverage_amount !== '' || formData.coverage_amount) && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Coverage Amount (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.coverage_amount}
-                    onChange={(e) => handleInputChange('coverage_amount', e.target.value === '' ? '' : Number(e.target.value))}
-                    className="input-field"
-                    placeholder="e.g., 50000"
-                  />
-                </div>
-              )}
-              {(formData.min_age !== '' || formData.min_age) && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Min Age
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.min_age}
-                    onChange={(e) => handleInputChange('min_age', e.target.value === '' ? '' : Number(e.target.value))}
-                    className="input-field"
-                    placeholder="e.g., 18"
-                  />
-                </div>
-              )}
-              {(formData.max_age !== '' || formData.max_age) && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Max Age
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.max_age}
-                    onChange={(e) => handleInputChange('max_age', e.target.value === '' ? '' : Number(e.target.value))}
-                    className="input-field"
-                    placeholder="e.g., 60"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Coverage Amount (₹)
+                </label>
+                <input
+                  type="number"
+                  value={formData.coverage_amount}
+                  onChange={(e) => handleInputChange('coverage_amount', e.target.value === '' ? '' : Number(e.target.value))}
+                  className="input-field"
+                  placeholder="e.g., 50000"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Min Age
+                </label>
+                <input
+                  type="number"
+                  value={formData.min_age}
+                  onChange={(e) => handleInputChange('min_age', e.target.value === '' ? '' : Number(e.target.value))}
+                  className="input-field"
+                  placeholder="e.g., 18"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Max Age
+                </label>
+                <input
+                  type="number"
+                  value={formData.max_age}
+                  onChange={(e) => handleInputChange('max_age', e.target.value === '' ? '' : Number(e.target.value))}
+                  className="input-field"
+                  placeholder="e.g., 65"
+                />
+              </div>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              {(formData.website || formData.website === '') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Website
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.website}
-                    onChange={(e) => handleInputChange('website', e.target.value)}
-                    className="input-field"
-                    placeholder="https://..."
-                  />
-                </div>
-              )}
-              {(formData.helpline || formData.helpline === '') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Helpline
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.helpline}
-                    onChange={(e) => handleInputChange('helpline', e.target.value)}
-                    className="input-field"
-                    placeholder="e.g., 1800-xxx-xxxx"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Website
+                </label>
+                <input
+                  type="url"
+                  value={formData.website}
+                  onChange={(e) => handleInputChange('website', e.target.value)}
+                  className="input-field"
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Helpline
+                </label>
+                <input
+                  type="text"
+                  value={formData.helpline}
+                  onChange={(e) => handleInputChange('helpline', e.target.value)}
+                  className="input-field"
+                  placeholder="e.g., 1800-xxx-xxxx"
+                />
+              </div>
             </div>
           </div>
 

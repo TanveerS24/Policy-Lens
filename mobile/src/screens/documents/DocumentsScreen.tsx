@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
-import { 
-  Text, 
-  Card, 
-  Button, 
-  FAB, 
-  ActivityIndicator, 
+import { View, StyleSheet, FlatList, Alert, ScrollView, Platform } from 'react-native';
+import {
+  Text,
+  Card,
+  Button,
+  FAB,
+  ActivityIndicator,
   Chip,
   IconButton,
   Portal,
@@ -15,12 +15,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import * as DocumentPicker from 'expo-document-picker';
 import { RootState, AppDispatch } from '../../redux/store';
-import { 
-  fetchDocuments, 
-  uploadDocument, 
+import {
+  fetchDocuments,
+  uploadDocument,
   deleteDocument,
   fetchAISummary,
   requestPublishDocument,
+  reanalyzeDocument,
   Document,
 } from '../../redux/slices/documentsSlice';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -33,6 +34,7 @@ export const DocumentsScreen: React.FC = () => {
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [summaryDialogVisible, setSummaryDialogVisible] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
 
   useEffect(() => {
     dispatch(fetchDocuments());
@@ -48,7 +50,7 @@ export const DocumentsScreen: React.FC = () => {
       if (result.canceled) return;
 
       const file = result.assets[0];
-      
+
       await dispatch(uploadDocument({
         uri: file.uri,
         name: file.name,
@@ -64,18 +66,64 @@ export const DocumentsScreen: React.FC = () => {
   };
 
   const handleDelete = (doc: Document) => {
-    Alert.alert(
-      'Delete Document',
-      `Are you sure you want to delete "${doc.filename}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: () => dispatch(deleteDocument(doc.id))
-        },
-      ]
-    );
+    const executeDelete = async () => {
+      try {
+        await dispatch(deleteDocument(doc.id)).unwrap();
+        setSummaryDialogVisible(false);
+        if (Platform.OS === 'web') {
+          window.alert(`Document "${doc.filename}" deleted successfully.`);
+        } else {
+          Alert.alert('Deleted', `Document "${doc.filename}" deleted successfully.`);
+        }
+      } catch (err) {
+        if (Platform.OS === 'web') {
+          window.alert('Failed to delete document.');
+        } else {
+          Alert.alert('Error', 'Failed to delete document.');
+        }
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Are you sure you want to delete "${doc.filename}"?`)) {
+        executeDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Document',
+        `Are you sure you want to delete "${doc.filename}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: executeDelete
+          },
+        ]
+      );
+    }
+  };
+
+  const handleReanalyze = async (doc: Document) => {
+    try {
+      setIsReanalyzing(true);
+      await dispatch(reanalyzeDocument(doc.id)).unwrap();
+      setIsReanalyzing(false);
+      setSummaryDialogVisible(false);
+      if (Platform.OS === 'web') {
+        window.alert(`AI re-analysis & summarization started for "${doc.filename}".`);
+      } else {
+        Alert.alert('Re-analyzing', `AI re-analysis & summarization started for "${doc.filename}".`);
+      }
+      dispatch(fetchDocuments());
+    } catch (err) {
+      setIsReanalyzing(false);
+      if (Platform.OS === 'web') {
+        window.alert('Failed to start AI re-analysis.');
+      } else {
+        Alert.alert('Error', 'Failed to start AI re-analysis.');
+      }
+    }
   };
 
   const handleViewSummary = async (doc: Document) => {
@@ -134,14 +182,14 @@ export const DocumentsScreen: React.FC = () => {
         </View>
 
         <View style={styles.statusContainer}>
-          <Chip 
-            compact 
+          <Chip
+            compact
             style={[styles.statusChip, { backgroundColor: getStatusColor(doc.status) + '20' }]}
             textStyle={{ color: getStatusColor(doc.status) }}
           >
             {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
           </Chip>
-          
+
           {doc.summary_generated && (
             <Chip compact style={styles.aiChip} icon="brain" textStyle={{ color: colors.primary }}>
               AI Summary Ready
@@ -166,17 +214,72 @@ export const DocumentsScreen: React.FC = () => {
         </Text>
 
         <View style={styles.actionRow}>
-          <Button 
-            mode={doc.summary_generated ? "contained" : "outlined"}
-            onPress={() => handleViewSummary(doc)}
-            disabled={doc.status === 'processing'}
-            textColor={doc.summary_generated ? '#FFFFFF' : colors.primary}
-            buttonColor={doc.summary_generated ? colors.primary : undefined}
-            style={styles.viewSummaryButton}
-            labelStyle={{ fontSize: 13, fontWeight: '600' }}
-          >
-            {doc.summary_generated ? 'View AI Summary & Eligibility' : 'Processing...'}
-          </Button>
+          {doc.status === 'failed' || doc.publish_status === 'non_dental' ? (
+            <View style={{ width: '100%', gap: 8 }}>
+              <Button
+                mode="contained"
+                onPress={() => handleViewSummary(doc)}
+                buttonColor={colors.error}
+                textColor="#FFFFFF"
+                icon="alert-circle"
+                labelStyle={{ fontSize: 13, fontWeight: '600' }}
+              >
+                View Rejection Reason & Details
+              </Button>
+              <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'space-between' }}>
+                <Button
+                  mode="outlined"
+                  onPress={handleUpload}
+                  disabled={isUploading}
+                  textColor={colors.primary}
+                  icon="file-replace"
+                  style={{ flex: 1 }}
+                  labelStyle={{ fontSize: 12 }}
+                >
+                  Change Document
+                </Button>
+                <Button
+                  mode="outlined"
+                  onPress={() => handleReanalyze(doc)}
+                  loading={isReanalyzing}
+                  disabled={isReanalyzing}
+                  textColor={colors.primary}
+                  icon="refresh"
+                  style={{ flex: 1 }}
+                  labelStyle={{ fontSize: 12 }}
+                >
+                  Re-analyze
+                </Button>
+              </View>
+            </View>
+          ) : (
+            <View style={{ width: '100%', gap: 8 }}>
+              <Button
+                mode={doc.summary_generated ? "contained" : "outlined"}
+                onPress={() => handleViewSummary(doc)}
+                disabled={doc.status === 'processing'}
+                textColor={doc.summary_generated ? '#FFFFFF' : colors.primary}
+                buttonColor={doc.summary_generated ? colors.primary : undefined}
+                style={styles.viewSummaryButton}
+                labelStyle={{ fontSize: 13, fontWeight: '600' }}
+              >
+                {doc.summary_generated ? 'View AI Summary & Eligibility' : 'Processing...'}
+              </Button>
+              {doc.status === 'completed' && (
+                <Button
+                  mode="outlined"
+                  onPress={() => handleReanalyze(doc)}
+                  loading={isReanalyzing}
+                  disabled={isReanalyzing}
+                  textColor={colors.primary}
+                  icon="refresh"
+                  labelStyle={{ fontSize: 12 }}
+                >
+                  Re-analyze & Summarize
+                </Button>
+              )}
+            </View>
+          )}
         </View>
       </Card.Content>
     </Card>
@@ -220,8 +323,8 @@ export const DocumentsScreen: React.FC = () => {
       />
 
       <Portal>
-        <Dialog 
-          visible={summaryDialogVisible} 
+        <Dialog
+          visible={summaryDialogVisible}
           onDismiss={() => setSummaryDialogVisible(false)}
           style={{ backgroundColor: colors.cardBg, borderRadius: 16 }}
         >
@@ -253,7 +356,7 @@ export const DocumentsScreen: React.FC = () => {
                       </Text>
                     </View>
                   )}
-                  
+
                   {selectedDoc.ai_summary.exclusions && (
                     <View style={styles.summarySection}>
                       <Text variant="titleSmall" style={[styles.sectionTitle, { color: colors.primary }]}>
@@ -264,7 +367,7 @@ export const DocumentsScreen: React.FC = () => {
                       </Text>
                     </View>
                   )}
-                  
+
                   {selectedDoc.ai_summary.claims_process && (
                     <View style={styles.summarySection}>
                       <Text variant="titleSmall" style={[styles.sectionTitle, { color: colors.primary }]}>
@@ -281,7 +384,7 @@ export const DocumentsScreen: React.FC = () => {
                       Publish Scheme to Public
                     </Text>
                     <Text variant="bodySmall" style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                      Submit this document and AI scheme details to Super Admins & Content Admins for review.
+                      Submit this document and scheme details to Admins for review and Publication.
                     </Text>
 
                     {selectedDoc.publish_status === 'pending_review' ? (
@@ -293,8 +396,8 @@ export const DocumentsScreen: React.FC = () => {
                         Published Publicly
                       </Chip>
                     ) : (
-                      <Button 
-                        mode="contained" 
+                      <Button
+                        mode="contained"
                         buttonColor={colors.primary}
                         loading={isPublishing}
                         disabled={isPublishing}
@@ -311,10 +414,49 @@ export const DocumentsScreen: React.FC = () => {
               )}
             </ScrollView>
           </Dialog.ScrollArea>
-          <Dialog.Actions>
-            <Button onPress={() => setSummaryDialogVisible(false)} textColor={colors.textPrimary}>
-              Close
-            </Button>
+          <Dialog.Actions style={{ flexDirection: 'column', gap: 8, paddingHorizontal: 16, paddingBottom: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', gap: 8 }}>
+              {selectedDoc && (
+                <Button
+                  mode="outlined"
+                  textColor={colors.primary}
+                  icon="refresh"
+                  loading={isReanalyzing}
+                  disabled={isReanalyzing}
+                  onPress={() => handleReanalyze(selectedDoc)}
+                  style={{ flex: 1 }}
+                >
+                  Re-analyze
+                </Button>
+              )}
+              {selectedDoc && (
+                <Button
+                  mode="outlined"
+                  textColor={colors.primary}
+                  icon="file-replace"
+                  loading={isUploading}
+                  disabled={isUploading}
+                  onPress={handleUpload}
+                  style={{ flex: 1 }}
+                >
+                  Change Doc
+                </Button>
+              )}
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+              {selectedDoc && (
+                <Button
+                  textColor={colors.error}
+                  icon="delete-outline"
+                  onPress={() => handleDelete(selectedDoc)}
+                >
+                  Delete Document
+                </Button>
+              )}
+              <Button onPress={() => setSummaryDialogVisible(false)} textColor={colors.textPrimary}>
+                Close
+              </Button>
+            </View>
           </Dialog.Actions>
         </Dialog>
       </Portal>

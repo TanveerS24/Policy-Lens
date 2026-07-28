@@ -52,7 +52,7 @@ class Document(Base):
 
     # Relationships
     user = relationship("User", back_populates="documents")
-    ai_summary = relationship("AISummary", back_populates="document", uselist=False)
+    ai_summary = relationship("AISummary", back_populates="document", uselist=False, cascade="all, delete-orphan")
 
 
 class AISummary(Base):

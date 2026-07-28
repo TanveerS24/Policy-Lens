@@ -13,7 +13,7 @@ class Scheme(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # Basic Info
-    name = Column(String(200), nullable=False, index=True)
+    name = Column(String(500), nullable=False, index=True)
     code = Column(String(50), unique=True, nullable=False)
     type = Column(String(20), nullable=False)  # state, national, central, ngo, private
     status = Column(String(20), default="active")
@@ -43,19 +43,19 @@ class Scheme(Base):
     # Eligibility
     min_age = Column(Integer, nullable=True)
     max_age = Column(Integer, nullable=True)
-    income_criteria = Column(String(200), nullable=True)
+    income_criteria = Column(Text, nullable=True)
 
     # Required Documents
     required_documents = Column(JSON, default=list)
 
     # Contact
     website = Column(String(255), nullable=True)
-    helpline = Column(String(20), nullable=True)
+    helpline = Column(String(100), nullable=True)
     email = Column(String(255), nullable=True)
 
     # Process Info
     application_process = Column(Text, nullable=True)
-    processing_time = Column(String(50), nullable=True)
+    processing_time = Column(String(255), nullable=True)
 
     # Original Document
     original_document_path = Column(String(500), nullable=True)
@@ -77,6 +77,14 @@ class Scheme(Base):
 
     def to_dict(self):
         """Convert scheme to dictionary."""
+        # Determine if scheme has specific eligibility criteria or is universal/open to all
+        income_str = (self.income_criteria or "").lower()
+        is_universal_income = not self.income_criteria or any(term in income_str for term in ["none", "no income restriction", "open to all", "no specific", "all citizens"])
+        is_universal_age = self.min_age is None and self.max_age is None
+        is_universal_category = not self.target_categories or any(term in [c.lower() for c in self.target_categories] for term in ["general public", "all citizens", "everyone"])
+        
+        has_eligibility = not (is_universal_income and is_universal_age and is_universal_category)
+
         return {
             "id": self.id,
             "name": self.name,
@@ -103,6 +111,7 @@ class Scheme(Base):
             "processing_time": self.processing_time,
             "has_original_document": bool(self.original_document_path),
             "full_document_text": self.full_document_text,
+            "has_eligibility_criteria": has_eligibility,
         }
 
 

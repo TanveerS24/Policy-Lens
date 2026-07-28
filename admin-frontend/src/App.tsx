@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SchemesPage } from './pages/SchemesPage'
 import { AddSchemePage } from './pages/AddSchemePage'
+import { ReviewRequestsPage } from './pages/ReviewRequestsPage'
 import { UsersPage } from './pages/UsersPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
 import { NotifyUsersPage } from './pages/NotifyUsersPage'
@@ -29,6 +30,7 @@ const App: FC = () => {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/schemes" element={<SchemesPage />} />
         <Route path="/schemes/add" element={<AddSchemePage />} />
+        <Route path="/review-requests" element={<ReviewRequestsPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/audit-logs" element={<AuditLogsPage />} />
         <Route path="/notify-users" element={<NotifyUsersPage />} />

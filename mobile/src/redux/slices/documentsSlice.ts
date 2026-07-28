@@ -121,6 +121,14 @@ export const requestPublishDocument = createAsyncThunk(
   }
 );
 
+export const reanalyzeDocument = createAsyncThunk(
+  'documents/reanalyzeDocument',
+  async (documentId: number) => {
+    const response = await api.post(`/documents/${documentId}/reanalyze`);
+    return { documentId, status: response.data.status };
+  }
+);
+
 const documentsSlice = createSlice({
   name: 'documents',
   initialState,

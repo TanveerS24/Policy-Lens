@@ -21,10 +21,10 @@ export interface Scheme {
   website?: string;
   helpline?: string;
   application_process?: string;
-  processing_time?: string;
   is_bookmarked: boolean;
   has_original_document?: boolean;
   full_document_text?: string;
+  has_eligibility_criteria?: boolean;
 }
 
 export interface EligibilityResult {

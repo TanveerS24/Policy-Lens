@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config.database import get_db, SessionLocal
 from app.config.settings import get_settings
-from app.models.document import Document, AISummary, DocumentStatus
+from app.models.document import Document, AISummary, DocumentChunk, DocumentStatus
 from app.models.user import User
 from app.models.admin import AdminUser, AdminNotification
 from app.api.v1.endpoints.patients import get_current_user
@@ -82,65 +82,90 @@ def process_document_sync(document_id: int, file_path: str):
         extraction = pdf_service.extract_text_from_pdf(file_bytes)
         text = extraction.get("text", "")
 
-        if text and len(text.strip()) >= 30:
-            details = pdf_service.extract_scheme_details(text)
+        if not text or len(text.strip()) < 20:
+            doc.status = DocumentStatus.FAILED.value
+            doc.summary_generated = False
+            db.commit()
+            return
 
-            cov_summary = details.get("benefits_covered")
-            if isinstance(cov_summary, list):
-                cov_summary = ", ".join(cov_summary)
-            if not cov_summary:
-                cov_summary = f"Extracted benefits from {doc.original_filename}."
+        # 1. Validate if document is related to dental/oral health
+        val_result = pdf_service.validate_dental_scheme_content(text)
+        if not val_result.get("is_dental_scheme"):
+            reason = val_result.get("reasoning", "The uploaded document does not contain dental or oral health content.")
+            logger.warning("document_rejected_non_dental", document_id=document_id, reasoning=reason)
+            doc.status = DocumentStatus.FAILED.value
+            doc.summary_generated = False
+            doc.publish_status = "non_dental"
 
-            eligibility = details.get("eligibility_criteria") or "• General Dental Health Program Eligibility\n• Valid Identity & Dental Treatment Documentation"
-            exclusions = "• Cosmetic dental treatments unless explicitly approved\n• Unauthorized non-empaneled clinics"
-            waiting_period = "Standard 30-day waiting period for routine dental care"
-            claims_process = details.get("application_process") or "Submit hospital treatment receipts & identity proof to claim benefits"
-            renewal = "Annual renewal subject to policy conditions"
+            # Remove previous AI summary if exists
+            if doc.ai_summary:
+                db.delete(doc.ai_summary)
 
+            # Store explicit non-dental error summary so mobile app displays rejection & blocks AI querying
             ai_sum = AISummary(
                 document_id=doc.id,
-                coverage_summary=str(cov_summary),
-                exclusions=exclusions,
-                waiting_period=waiting_period,
-                claims_process=claims_process,
-                renewal_conditions=renewal,
-                eligibility_criteria=str(eligibility),
-                coverage_details={"amount": str(details.get("coverage_amount", "Standard Coverage")), "type": str(details.get("type", "Dental Scheme"))},
-                exclusions_list=["Cosmetic treatments", "Experimental procedures"],
-                confidence_score=85,
-                processing_time_seconds=2,
-                model_used="llama3.1:8b"
-            )
-            db.add(ai_sum)
-            doc.status = DocumentStatus.COMPLETED.value
-            doc.summary_generated = True
-            doc.summary_generated_at = datetime.now(timezone.utc)
-            doc.processed_at = datetime.now(timezone.utc)
-        else:
-            doc.status = DocumentStatus.COMPLETED.value
-            doc.summary_generated = True
-            ai_sum = AISummary(
-                document_id=doc.id,
-                coverage_summary=f"Processed document: {doc.original_filename}",
-                exclusions="• Cosmetic dental treatments",
-                waiting_period="Standard policy terms apply",
-                claims_process="Submit claim with original invoice",
-                renewal_conditions="Annual policy renewal",
-                eligibility_criteria="• Indian Citizen\n• Valid Dental Healthcare Card",
-                coverage_details={"amount": "Standard Dental Coverage"},
-                exclusions_list=["Cosmetic procedures"],
-                confidence_score=75,
+                coverage_summary=f"Non-Dental Document: This file is not related to dental care or oral health. Reasoning: {reason}",
+                exclusions="Non-Dental Document — AI Extraction & Eligibility querying blocked.",
+                waiting_period="N/A",
+                claims_process="N/A",
+                renewal_conditions="N/A",
+                eligibility_criteria="Non-Dental Document — Eligibility Query Blocked",
+                coverage_details={"amount": "N/A", "type": "Non-Dental Document", "is_non_dental": True},
+                exclusions_list=["Non-Dental Document"],
+                confidence_score=0,
                 processing_time_seconds=1,
-                model_used="llama3.1:8b"
+                model_used="validation"
             )
             db.add(ai_sum)
+            db.commit()
+            return
 
+        # 2. Extract detailed scheme & dental information
+        details = pdf_service.extract_scheme_details(text)
+
+        cov_summary = details.get("about_scheme") or details.get("benefits_covered")
+        if isinstance(cov_summary, list):
+            cov_summary = ", ".join(cov_summary)
+        if not cov_summary:
+            cov_summary = f"Comprehensive dental healthcare summary for {doc.original_filename}."
+
+        eligibility = details.get("eligibility_criteria") or "- Age requirement: None / Open to all\n- Income criteria: No income restriction\n- Target category: Open to all citizens\n- Required documents: Standard Identity Proof"
+
+        # Remove previous AI summary if re-analyzing
+        if doc.ai_summary:
+            db.delete(doc.ai_summary)
+
+        ai_sum = AISummary(
+            document_id=doc.id,
+            coverage_summary=str(cov_summary),
+            exclusions="• Cosmetic dental procedures unless medically indicated",
+            waiting_period="Standard policy terms apply",
+            claims_process=details.get("application_process") or "Submit hospital treatment receipts & identity proof to claim benefits.",
+            renewal_conditions="Annual policy renewal",
+            eligibility_criteria=str(eligibility),
+            coverage_details={
+                "amount": str(details.get("coverage_amount", "Standard Coverage")),
+                "type": str(details.get("type", "national")),
+                "has_eligibility_restrictions": details.get("has_eligibility_restrictions", True),
+                "is_non_dental": False
+            },
+            exclusions_list=["Cosmetic dental procedures"],
+            confidence_score=90,
+            processing_time_seconds=3,
+            model_used="llama3.1:8b"
+        )
+        db.add(ai_sum)
+        doc.status = DocumentStatus.COMPLETED.value
+        doc.summary_generated = True
+        doc.summary_generated_at = datetime.now(timezone.utc)
+        doc.processed_at = datetime.now(timezone.utc)
         db.commit()
+
     except Exception as e:
         logger.error("process_document_failed", error=str(e), document_id=document_id)
         if doc:
-            doc.status = DocumentStatus.COMPLETED.value
-            doc.summary_generated = True
+            doc.status = DocumentStatus.FAILED.value
+            doc.summary_generated = False
             db.commit()
     finally:
         db.close()
@@ -358,7 +383,7 @@ async def delete_document(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a document."""
+    """Delete a document and all associated data safely."""
     document = db.query(Document).filter(
         Document.id == document_id,
         Document.user_id == user.id
@@ -367,10 +392,64 @@ async def delete_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     
+    try:
+        # Delete associated document chunks (if any)
+        db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).delete(synchronize_session=False)
+        
+        # Delete associated AI summary (if any)
+        if document.ai_summary:
+            db.delete(document.ai_summary)
+        
+        # Remove physical storage file if it exists on disk
+        if document.storage_path and os.path.exists(document.storage_path):
+            try:
+                os.remove(document.storage_path)
+            except Exception as file_err:
+                logger.warning("failed_to_delete_physical_file", path=document.storage_path, error=str(file_err))
+        
+        db.delete(document)
+        db.commit()
+        
+        return {"message": "Document deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        logger.error("delete_document_error", document_id=document_id, error=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
+
+
+@router.post("/{document_id}/reanalyze")
+async def reanalyze_document(
+    document_id: int,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Re-analyze and summarize a document with AI."""
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == user.id
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not document.storage_path or not os.path.exists(document.storage_path):
+        raise HTTPException(status_code=400, detail="Document file does not exist on server. Please upload again.")
+
+    # Remove existing AI summary if present
     if document.ai_summary:
         db.delete(document.ai_summary)
-    
-    db.delete(document)
+        db.commit()
+
+    document.status = DocumentStatus.PROCESSING.value
+    document.summary_generated = False
+    document.publish_status = "draft"
     db.commit()
-    
-    return {"message": "Document deleted successfully"}
+
+    background_tasks.add_task(process_document_sync, document.id, document.storage_path)
+
+    return {
+        "id": document.id,
+        "status": document.status,
+        "message": "AI re-analysis and summarization started."
+    }

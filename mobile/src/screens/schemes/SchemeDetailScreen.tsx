@@ -223,44 +223,54 @@ export const SchemeDetailScreen: React.FC = () => {
           </View>
         )}
 
-        {/* Full Document Text */}
-        {scheme.full_document_text && (
+        {/* Full Document & Original PDF Download Section */}
+        {(scheme.full_document_text || scheme.has_original_document) && (
           <View style={styles.section}>
             <View style={styles.documentTextHeader}>
               <Text style={styles.sectionTitle}>📄 Full Document</Text>
-              <Text style={styles.documentTextHint}>Complete extracted text from the official document</Text>
+              <Text style={styles.documentTextHint}>Complete official scheme document details</Text>
             </View>
-            <View style={[styles.documentTextContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-              <Text style={styles.documentTextContent}>
-                {scheme.full_document_text}
-              </Text>
-            </View>
-          </View>
-        )}
 
-        {/* View Original Document (PDF) */}
-        {scheme.has_original_document && (
-          <TouchableOpacity
-            style={[styles.documentButton, { borderColor: colors.primary }]}
-            onPress={handleViewDocument}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.documentIcon}>📋</Text>
-            <Text style={[styles.documentButtonText, { color: colors.primary }]}>
-              Download Original PDF
-            </Text>
-          </TouchableOpacity>
+            {scheme.has_original_document && (
+              <TouchableOpacity
+                style={[styles.documentButton, { borderColor: colors.primary, marginBottom: 12 }]}
+                onPress={handleViewDocument}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.documentIcon}>📥</Text>
+                <Text style={[styles.documentButtonText, { color: colors.primary }]}>
+                  Download Original PDF Document
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {scheme.full_document_text && (
+              <View style={[styles.documentTextContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                <Text style={styles.documentTextContent}>
+                  {scheme.full_document_text}
+                </Text>
+              </View>
+            )}
+          </View>
         )}
 
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={[styles.primaryActionButton, { backgroundColor: colors.primary }]}
-            onPress={() => setEligibilityModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.primaryActionText}>Check Eligibility</Text>
-          </TouchableOpacity>
+          {scheme.has_eligibility_criteria === false ? (
+            <View style={[styles.primaryActionButton, { backgroundColor: '#6B7280', opacity: 0.85 }]}>
+              <Text style={styles.primaryActionText}>
+                Open to All Citizens (No Eligibility Check Required)
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.primaryActionButton, { backgroundColor: colors.primary }]}
+              onPress={() => setEligibilityModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.primaryActionText}>Check Eligibility</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
 

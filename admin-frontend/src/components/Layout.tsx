@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, 
   FileText, 
+  FileCheck,
   Users, 
   ClipboardList, 
   Bell,
@@ -22,6 +23,7 @@ interface LayoutProps {
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Schemes', href: '/schemes', icon: FileText },
+  { name: 'Review Requests', href: '/review-requests', icon: FileCheck },
   { name: 'Users', href: '/users', icon: Users },
   { name: 'Audit Logs', href: '/audit-logs', icon: ClipboardList },
   { name: 'Notify Users', href: '/notify-users', icon: Bell },

@@ -5,7 +5,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import bcrypt
@@ -82,6 +82,17 @@ class SchemeExtractResponse(BaseModel):
     name: str
     code: str
     type: str
+    has_eligibility_restrictions: bool = True
+    ministry: Optional[str] = None
+    state: Optional[str] = None
+    coverage_amount: Optional[float] = None
+    min_age: Optional[int] = None
+    max_age: Optional[int] = None
+    target_categories: List[str] = []
+    services_covered: List[str] = []
+    required_documents: List[str] = []
+    website: Optional[str] = None
+    helpline: Optional[str] = None
     full_document_text: Optional[str] = None
 
 
@@ -103,6 +114,24 @@ class PublishSchemeRequest(BaseModel):
     helpline: Optional[str] = None
     file_id: Optional[str] = None
     full_document_text: Optional[str] = None
+
+    @field_validator("coverage_amount", mode="before")
+    def sanitize_coverage_amount(cls, v):
+        if v == "" or v is None:
+            return None
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return None
+
+    @field_validator("min_age", "max_age", mode="before")
+    def sanitize_age(cls, v):
+        if v == "" or v is None:
+            return None
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return None
 
 
 # Dependencies
@@ -373,6 +402,129 @@ async def create_scheme(
     return {"message": "Scheme created successfully", "scheme_id": scheme.id}
 
 
+class UpdateSchemeRequest(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    type: Optional[str] = None
+    status: Optional[str] = None
+    description: Optional[str] = None
+    ministry: Optional[str] = None
+    state: Optional[str] = None
+    target_categories: Optional[List[str]] = None
+    services_covered: Optional[List[str]] = None
+    coverage_amount: Optional[float] = None
+    min_age: Optional[int] = None
+    max_age: Optional[int] = None
+    income_criteria: Optional[str] = None
+    website: Optional[str] = None
+    helpline: Optional[str] = None
+
+
+@router.put("/schemes/{scheme_id}")
+async def update_scheme(
+    scheme_id: int,
+    request: UpdateSchemeRequest,
+    admin: AdminUser = Depends(require_role("super_admin", "content_admin")),
+    db: Session = Depends(get_db)
+):
+    """Update an existing scheme."""
+    scheme = db.query(Scheme).filter(
+        Scheme.id == scheme_id,
+        Scheme.is_deleted == False
+    ).first()
+    
+    if not scheme:
+        raise HTTPException(status_code=404, detail="Scheme not found")
+    
+    if request.code and request.code != scheme.code:
+        existing = db.query(Scheme).filter(Scheme.code == request.code, Scheme.id != scheme_id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Scheme code already in use")
+        scheme.code = request.code
+    
+    if request.name is not None:
+        scheme.name = request.name
+    if request.type is not None:
+        scheme.type = request.type
+    if request.status is not None:
+        scheme.status = request.status
+    if request.description is not None:
+        scheme.description = request.description
+        scheme.short_description = request.description[:450] if request.description else None
+    if request.ministry is not None:
+        scheme.ministry = request.ministry
+    if request.state is not None:
+        scheme.state = request.state
+    if request.target_categories is not None:
+        scheme.target_categories = request.target_categories
+    if request.services_covered is not None:
+        scheme.services_covered = request.services_covered
+    if request.coverage_amount is not None:
+        scheme.coverage_amount = request.coverage_amount
+    if request.min_age is not None:
+        scheme.min_age = request.min_age
+    if request.max_age is not None:
+        scheme.max_age = request.max_age
+    if request.income_criteria is not None:
+        scheme.income_criteria = request.income_criteria
+    if request.website is not None:
+        scheme.website = request.website
+    if request.helpline is not None:
+        scheme.helpline = request.helpline
+
+    scheme.updated_at = datetime.now(timezone.utc)
+    
+    audit_log = AuditLog(
+        actor_type="admin",
+        actor_id=admin.id,
+        admin_id=admin.id,
+        action="scheme_update",
+        resource_type="scheme",
+        resource_id=scheme.id,
+        success="success",
+        description=f"Updated scheme: {scheme.name}"
+    )
+    db.add(audit_log)
+    db.commit()
+    db.refresh(scheme)
+    
+    return {"message": "Scheme updated successfully", "scheme": scheme.to_dict()}
+
+
+@router.delete("/schemes/{scheme_id}")
+async def delete_scheme(
+    scheme_id: int,
+    admin: AdminUser = Depends(require_role("super_admin", "content_admin")),
+    db: Session = Depends(get_db)
+):
+    """Soft delete a scheme."""
+    scheme = db.query(Scheme).filter(
+        Scheme.id == scheme_id,
+        Scheme.is_deleted == False
+    ).first()
+    
+    if not scheme:
+        raise HTTPException(status_code=404, detail="Scheme not found")
+    
+    scheme.is_deleted = True
+    scheme.deleted_at = datetime.now(timezone.utc)
+    
+    audit_log = AuditLog(
+        actor_type="admin",
+        actor_id=admin.id,
+        admin_id=admin.id,
+        action="scheme_delete",
+        resource_type="scheme",
+        resource_id=scheme.id,
+        success="success",
+        description=f"Deleted scheme: {scheme.name}"
+    )
+    db.add(audit_log)
+    db.commit()
+    
+    return {"message": "Scheme deleted successfully"}
+
+
 @router.get("/users")
 async def list_users(
     search: Optional[str] = None,
@@ -603,13 +755,19 @@ def extract_text_from_pdf(file_content: bytes) -> str:
 
 def get_ollama_host() -> str:
     """Get Ollama host, trying multiple options for Docker compatibility."""
-    # First check env var
-    env_host = os.environ.get('OLLAMA_HOST')
-    if env_host:
-        return env_host
+    env_host = os.environ.get('OLLAMA_HOST', '').strip()
+    if env_host and env_host != '0.0.0.0':
+        env_host_clean = env_host.replace('http://', '').replace('https://', '').split(':')[0].strip('/')
+        if env_host_clean and env_host_clean != '0.0.0.0':
+            try:
+                response = requests.get(f"http://{env_host_clean}:11434/api/tags", timeout=2)
+                if response.status_code == 200:
+                    return env_host_clean
+            except Exception:
+                pass
     
     # Try common Docker host addresses
-    hosts_to_try = ['localhost', '127.0.0.1', '172.17.0.1', 'host.docker.internal']
+    hosts_to_try = ['host.docker.internal', '127.0.0.1', 'localhost', '172.17.0.1']
     for host in hosts_to_try:
         try:
             response = requests.get(f"http://{host}:11434/api/tags", timeout=2)
@@ -619,8 +777,7 @@ def get_ollama_host() -> str:
         except Exception:
             continue
     
-    # Default fallback
-    return '172.17.0.1'
+    return 'host.docker.internal'
 
 def check_ollama_health() -> bool:
     """Check if Ollama is reachable."""
@@ -735,21 +892,57 @@ async def extract_scheme_from_pdf(
     # Validate if content is related to dental schemes
     validation_result = pdf_service.validate_dental_scheme_content(pdf_text)
     
-    if not validation_result["is_dental_scheme"]:
+    if not validation_result.get("is_dental_scheme"):
+        reason = validation_result.get("reasoning", "The uploaded document does not contain dental scheme or dental healthcare information.")
         raise HTTPException(
             status_code=400,
-            detail=f"This document does not appear to be a dental scheme. Confidence: {validation_result['confidence_score']}. Reason: {validation_result['reasoning']}"
+            detail=f"Non-Dental Document: The uploaded PDF is not related to dental health schemes or insurance. {reason}"
         )
     
     # Extract detailed scheme information
     scheme_details = pdf_service.extract_scheme_details(pdf_text)
-    
+
+    raw_coverage = scheme_details.get("coverage_amount")
+    parsed_coverage = None
+    if raw_coverage is not None and str(raw_coverage).strip() != "":
+        try:
+            parsed_coverage = float(raw_coverage)
+        except (ValueError, TypeError):
+            parsed_coverage = None
+
+    raw_min_age = scheme_details.get("min_age")
+    parsed_min_age = None
+    if raw_min_age is not None and str(raw_min_age).strip() != "":
+        try:
+            parsed_min_age = int(raw_min_age)
+        except (ValueError, TypeError):
+            parsed_min_age = None
+
+    raw_max_age = scheme_details.get("max_age")
+    parsed_max_age = None
+    if raw_max_age is not None and str(raw_max_age).strip() != "":
+        try:
+            parsed_max_age = int(raw_max_age)
+        except (ValueError, TypeError):
+            parsed_max_age = None
+
     return {
-        "eligibility_criteria": scheme_details.get("eligibility_criteria", "Not specified"),
-        "about_scheme": scheme_details.get("benefits_covered", ["Not specified"])[0] if scheme_details.get("benefits_covered") else "Not specified",
-        "name": scheme_details.get("name", filename.replace(".pdf", "")),
-        "code": scheme_details.get("code", "NEW_SCHEME"),
-        "type": scheme_details.get("type", "national"),
+        "eligibility_criteria": scheme_details.get("eligibility_criteria", ""),
+        "about_scheme": scheme_details.get("about_scheme", ""),
+        "name": scheme_details.get("name") or filename.replace(".pdf", ""),
+        "code": scheme_details.get("code") or "NEW_SCHEME",
+        "type": scheme_details.get("type") or "national",
+        "has_eligibility_restrictions": bool(scheme_details.get("has_eligibility_restrictions", True)),
+        "ministry": scheme_details.get("ministry") or "",
+        "state": scheme_details.get("state") or "",
+        "coverage_amount": parsed_coverage,
+        "min_age": parsed_min_age,
+        "max_age": parsed_max_age,
+        "target_categories": scheme_details.get("target_categories") if isinstance(scheme_details.get("target_categories"), list) else [],
+        "services_covered": scheme_details.get("services_covered") if isinstance(scheme_details.get("services_covered"), list) else [],
+        "required_documents": scheme_details.get("required_documents") if isinstance(scheme_details.get("required_documents"), list) else [],
+        "website": scheme_details.get("website") or "",
+        "helpline": scheme_details.get("helpline") or "",
         "full_document_text": pdf_text
     }
 
@@ -967,3 +1160,267 @@ async def check_scheme_eligibility(
         "missing_criteria": eligibility_result["missing_criteria"],
         "recommendations": eligibility_result["recommendations"]
     }
+
+
+# Review Request Schemas & Endpoints
+class ReviewRequestApprovePayload(BaseModel):
+    scheme_name: Optional[str] = None
+    scheme_code: Optional[str] = None
+    scheme_type: Optional[str] = "state"
+    description: Optional[str] = None
+    eligibility_criteria: Optional[str] = None
+    coverage_amount: Optional[float] = None
+    target_categories: Optional[List[str]] = []
+    services_covered: Optional[List[str]] = []
+    ministry: Optional[str] = None
+    state: Optional[str] = None
+    admin_notes: Optional[str] = None
+
+
+class ReviewRequestRejectPayload(BaseModel):
+    rejection_reason: str
+
+
+@router.get("/review-requests")
+async def list_review_requests(
+    status: Optional[str] = None,
+    admin: AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """List document publish review requests."""
+    query = db.query(Document).filter(
+        (Document.publish_requested == True) | (Document.publish_status.in_(["pending_review", "published", "rejected"]))
+    )
+
+    if status and status.lower() != "all":
+        query = query.filter(Document.publish_status == status.lower())
+
+    documents = query.order_by(Document.uploaded_at.desc()).all()
+
+    requests_list = []
+    for doc in documents:
+        user = db.query(User).filter(User.id == doc.user_id).first()
+        ai_summary = doc.ai_summary
+
+        requests_list.append({
+            "id": doc.id,
+            "filename": doc.original_filename,
+            "file_size": doc.file_size_bytes,
+            "mime_type": doc.mime_type,
+            "status": doc.status,
+            "publish_status": doc.publish_status or "pending_review",
+            "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+            "publish_requested_at": doc.publish_requested_at.isoformat() if doc.publish_requested_at else None,
+            "user": {
+                "id": user.id if user else None,
+                "name": user.name if user else f"User #{doc.user_id}",
+                "mobile_number": user.mobile if user else None,
+                "email": user.email if user else None,
+            } if user else None,
+            "summary_generated": doc.summary_generated,
+            "confidence_score": ai_summary.confidence_score if ai_summary else None,
+            "coverage_summary": ai_summary.coverage_summary if ai_summary else None,
+            "eligibility_criteria": ai_summary.eligibility_criteria if ai_summary else None,
+        })
+
+    return {"review_requests": requests_list}
+
+
+@router.get("/review-requests/{document_id}")
+async def get_review_request(
+    document_id: int,
+    admin: AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get full details of a specific document review request."""
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Review request document not found")
+
+    user = db.query(User).filter(User.id == document.user_id).first()
+    ai_summary = document.ai_summary
+
+    default_code = f"SCH-{document.id}-{uuid.uuid4().hex[:4].upper()}"
+    default_name = document.original_filename.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ').title()
+
+    ai_data = None
+    if ai_summary:
+        ai_data = {
+            "coverage_summary": ai_summary.coverage_summary,
+            "exclusions": ai_summary.exclusions,
+            "waiting_period": ai_summary.waiting_period,
+            "claims_process": ai_summary.claims_process,
+            "renewal_conditions": ai_summary.renewal_conditions,
+            "eligibility_criteria": ai_summary.eligibility_criteria,
+            "coverage_details": ai_summary.coverage_details or {},
+            "exclusions_list": ai_summary.exclusions_list or [],
+            "confidence_score": ai_summary.confidence_score,
+        }
+
+    return {
+        "id": document.id,
+        "filename": document.original_filename,
+        "file_size": document.file_size_bytes,
+        "mime_type": document.mime_type,
+        "status": document.status,
+        "publish_status": document.publish_status or "pending_review",
+        "uploaded_at": document.uploaded_at.isoformat() if document.uploaded_at else None,
+        "publish_requested_at": document.publish_requested_at.isoformat() if document.publish_requested_at else None,
+        "user": {
+            "id": user.id if user else None,
+            "name": user.name if user else f"User #{document.user_id}",
+            "mobile_number": user.mobile if user else None,
+            "email": user.email if user else None,
+        } if user else None,
+        "ai_summary": ai_data,
+        "suggested_scheme": {
+            "name": default_name,
+            "code": default_code,
+            "type": "state",
+            "description": ai_summary.coverage_summary if (ai_summary and ai_summary.coverage_summary) else f"Extracted policy scheme from document {document.original_filename}",
+            "eligibility_criteria": ai_summary.eligibility_criteria if (ai_summary and ai_summary.eligibility_criteria) else "Standard Dental Coverage Eligibility",
+            "coverage_amount": 10000.0,
+            "target_categories": ["General Citizens"],
+            "services_covered": ["Consultation", "Cleaning", "Extraction"]
+        }
+    }
+
+
+@router.get("/review-requests/{document_id}/file")
+async def view_review_request_document_file(
+    document_id: int,
+    admin: AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Serve original document file for admin viewing/downloading."""
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not document.storage_path or not os.path.exists(document.storage_path):
+        raise HTTPException(status_code=404, detail="Document file not found on server")
+
+    return FileResponse(
+        path=document.storage_path,
+        filename=document.original_filename,
+        media_type=document.mime_type or "application/pdf"
+    )
+
+
+@router.post("/review-requests/{document_id}/approve")
+async def approve_review_request(
+    document_id: int,
+    payload: ReviewRequestApprovePayload,
+    admin: AdminUser = Depends(require_role(AdminRole.SUPER_ADMIN.value, AdminRole.CONTENT_ADMIN.value)),
+    db: Session = Depends(get_db)
+):
+    """Approve a document publish request and create public scheme."""
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    document.publish_status = "published"
+    document.publish_requested = True
+
+    default_code = payload.scheme_code or f"SCH-{document.id}-{uuid.uuid4().hex[:4].upper()}"
+    default_name = payload.scheme_name or document.original_filename.rsplit('.', 1)[0].replace('_', ' ').title()
+    desc = payload.description or (document.ai_summary.coverage_summary if document.ai_summary else f"Scheme for {default_name}")
+
+    scheme = Scheme(
+        name=default_name,
+        code=default_code,
+        type=payload.scheme_type or "state",
+        description=desc,
+        short_description=desc[:450] if desc else None,
+        income_criteria=payload.eligibility_criteria or (document.ai_summary.eligibility_criteria if document.ai_summary else None),
+        coverage_amount=payload.coverage_amount or 10000.0,
+        target_categories=payload.target_categories or ["General Citizens"],
+        services_covered=payload.services_covered or ["Consultation", "Cleaning"],
+        ministry=payload.ministry,
+        state=payload.state,
+        original_document_path=document.storage_path,
+        original_document_filename=document.original_filename,
+        created_by=admin.id,
+        status="active"
+    )
+    db.add(scheme)
+    db.flush()
+
+    audit_log = AuditLog(
+        actor_type="admin",
+        actor_id=admin.id,
+        admin_id=admin.id,
+        action="approve_document_review",
+        resource_type="document",
+        resource_id=document.id,
+        success="success",
+        description=f"Approved publish request for document '{document.original_filename}' and created scheme '{scheme.name}'"
+    )
+    db.add(audit_log)
+
+    from app.models.notification import Notification
+    user_notif = Notification(
+        user_id=document.user_id,
+        title="Document Published Successfully",
+        message=f"Your submitted document '{document.original_filename}' has been reviewed and approved! Scheme '{scheme.name}' is now live.",
+        notification_type="document_approved",
+        related_type="scheme",
+        related_id=scheme.id
+    )
+    db.add(user_notif)
+
+    db.commit()
+
+    return {
+        "message": f"Publish request approved. Scheme '{scheme.name}' has been created and published.",
+        "document_id": document.id,
+        "scheme_id": scheme.id,
+        "publish_status": document.publish_status
+    }
+
+
+@router.post("/review-requests/{document_id}/reject")
+async def reject_review_request(
+    document_id: int,
+    payload: ReviewRequestRejectPayload,
+    admin: AdminUser = Depends(require_role(AdminRole.SUPER_ADMIN.value, AdminRole.CONTENT_ADMIN.value)),
+    db: Session = Depends(get_db)
+):
+    """Reject a document publish request."""
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    document.publish_status = "rejected"
+
+    audit_log = AuditLog(
+        actor_type="admin",
+        actor_id=admin.id,
+        admin_id=admin.id,
+        action="reject_document_review",
+        resource_type="document",
+        resource_id=document.id,
+        success="success",
+        description=f"Rejected publish request for document '{document.original_filename}'. Reason: {payload.rejection_reason}"
+    )
+    db.add(audit_log)
+
+    from app.models.notification import Notification
+    user_notif = Notification(
+        user_id=document.user_id,
+        title="Document Review Update",
+        message=f"Your publication request for document '{document.original_filename}' was reviewed and rejected. Reason: {payload.rejection_reason}",
+        notification_type="document_rejected",
+        related_type="document",
+        related_id=document.id
+    )
+    db.add(user_notif)
+
+    db.commit()
+
+    return {
+        "message": "Publish request rejected successfully.",
+        "document_id": document.id,
+        "publish_status": document.publish_status
+    }
+

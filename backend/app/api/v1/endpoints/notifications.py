@@ -13,6 +13,7 @@ from app.models.scheme import Scheme
 from app.models.admin import AdminUser
 from app.api.v1.endpoints.patients import get_current_user
 from app.api.v1.endpoints.admin import get_current_admin
+from app.services.notification_service import purge_old_notifications
 import structlog
 
 logger = structlog.get_logger()
@@ -79,7 +80,10 @@ async def get_notifications(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get user notifications."""
+    """Get user notifications (automatically purging notifications older than 30 days)."""
+    # Automatically delete notifications older than 30 days (1 month)
+    purge_old_notifications(db, days=30)
+
     query = db.query(Notification).filter(Notification.user_id == user.id)
     
     if unread_only:
@@ -405,3 +409,16 @@ async def send_broadcast_notifications(broadcast: UserBroadcast, db: Session):
     broadcast.sent_at = datetime.now(timezone.utc)
     broadcast.status = "sent"
     db.commit()
+
+
+@router.post("/purge-old")
+async def purge_old_notifications_endpoint(
+    days: int = 30,
+    db: Session = Depends(get_db)
+):
+    """Delete notifications and OTPs older than specified days (default 30 days / 1 month)."""
+    deleted_count = purge_old_notifications(db, days=days)
+    return {
+        "message": f"Successfully deleted all notifications older than {days} days",
+        "deleted_count": deleted_count
+    }
