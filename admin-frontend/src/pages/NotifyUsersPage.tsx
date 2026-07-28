@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Bell, Send, Calendar, FileText, Users, Clock, CheckCircle, XCircle, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react'
@@ -36,7 +36,6 @@ interface BroadcastFormData {
   scheme_id: number | ''
   scheduled_at: string
   schedule_type: 'immediate' | 'scheduled'
-  target_all_users: boolean
 }
 
 const NotifyUsersPage: React.FC = () => {
@@ -47,18 +46,33 @@ const NotifyUsersPage: React.FC = () => {
     message: '',
     scheme_id: '',
     scheduled_at: '',
-    schedule_type: 'immediate',
-    target_all_users: true
+    schedule_type: 'immediate'
   })
   const [currentPage, setCurrentPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('')
 
-  // Fetch schemes for dropdown
-  const { data: schemes } = useQuery({
-    queryKey: ['schemes'],
+  // Scheme search with 2 second debounce gap
+  const [schemeSearchInput, setSchemeSearchInput] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(schemeSearchInput)
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [schemeSearchInput])
+
+  // Fetch schemes for dropdown with debounced search
+  const { data: schemesList, isFetching: isFetchingSchemes } = useQuery({
+    queryKey: ['schemes-search', debouncedSearch],
     queryFn: async () => {
       try {
-        const response = await axios.get(`${API_URL}/schemes`, {
+        const params = new URLSearchParams()
+        if (debouncedSearch.trim()) {
+          params.append('search', debouncedSearch.trim())
+        }
+        params.append('per_page', '50')
+        const response = await axios.get(`${API_URL}/schemes?${params.toString()}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         return response.data.schemes || []
@@ -90,7 +104,9 @@ const NotifyUsersPage: React.FC = () => {
         return { broadcasts: [], total: 0, page: 1, per_page: 10, total_pages: 0 }
       }
     },
-    enabled: !!token
+    enabled: !!token,
+    refetchInterval: 5000, // Auto-update broadcast statuses live without reloading
+    refetchIntervalInBackground: true
   })
 
   // Create broadcast mutation
@@ -101,7 +117,7 @@ const NotifyUsersPage: React.FC = () => {
         message: data.message,
         scheme_id: data.scheme_id ? data.scheme_id : undefined,
         scheduled_at: data.schedule_type === 'scheduled' ? data.scheduled_at : undefined,
-        target_all_users: data.target_all_users
+        target_all_users: true
       }
       
       const response = await axios.post(`${API_URL}/notifications/broadcast`, payload, {
@@ -115,9 +131,9 @@ const NotifyUsersPage: React.FC = () => {
         message: '',
         scheme_id: '',
         scheduled_at: '',
-        schedule_type: 'immediate',
-        target_all_users: true
+        schedule_type: 'immediate'
       })
+      setSchemeSearchInput('')
       refetchBroadcasts()
       alert('Notification sent successfully!')
     },
@@ -260,22 +276,40 @@ const NotifyUsersPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Scheme Selection */}
+                {/* Scheme Selection with 2s Debounced Search */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Attach Scheme (Optional)
                   </label>
+                  <input
+                    type="text"
+                    value={schemeSearchInput}
+                    onChange={(e) => setSchemeSearchInput(e.target.value)}
+                    placeholder="Type scheme name to search (2s gap)..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {schemeSearchInput !== debouncedSearch && (
+                    <p className="text-xs text-blue-600 mb-1 font-medium animate-pulse">
+                      ⏳ Waiting 2s before querying database for "{schemeSearchInput}"...
+                    </p>
+                  )}
                   <select
                     value={formData.scheme_id}
                     onChange={(e) => setFormData({ ...formData, scheme_id: e.target.value ? parseInt(e.target.value) : '' })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">No scheme attached</option>
-                    {schemes?.map((scheme: Scheme) => (
-                      <option key={scheme.id} value={scheme.id}>
-                        {scheme.name} ({scheme.code})
-                      </option>
-                    ))}
+                    {isFetchingSchemes ? (
+                      <option disabled>Searching schemes...</option>
+                    ) : schemesList && schemesList.length > 0 ? (
+                      schemesList.map((scheme: Scheme) => (
+                        <option key={scheme.id} value={scheme.id}>
+                          {scheme.name} ({scheme.code})
+                        </option>
+                      ))
+                    ) : (
+                      <option disabled>No matching schemes found</option>
+                    )}
                   </select>
                 </div>
 
@@ -317,22 +351,6 @@ const NotifyUsersPage: React.FC = () => {
                       required
                     />
                   )}
-                </div>
-
-                {/* Targeting */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Target Users
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.target_all_users}
-                      onChange={(e) => setFormData({ ...formData, target_all_users: e.target.checked })}
-                      className="mr-2"
-                    />
-                    <span className="text-sm">Send to all active users</span>
-                  </label>
                 </div>
 
                 {/* Submit Button */}

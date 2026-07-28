@@ -23,13 +23,23 @@ export const OTPVerificationScreen: React.FC = () => {
   const { isLoading, error } = useSelector((state: RootState) => state.auth);
   const toast = useToast();
 
-  const { mobile, purpose, nextScreen, userData } = route.params;
+  const { email: paramEmail, mobile: paramMobile, purpose, nextScreen, userData, devOtp } = route.params;
 
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const targetEmail = paramEmail || userData?.email || '';
+  const targetMobile = paramMobile || userData?.mobile || '';
+
+  const [method, setMethod] = useState<'email' | 'mobile'>('email');
+  const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(60);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   const inputRefs = useRef<(RNTextInput | null)[]>([]);
+
+  useEffect(() => {
+    if (devOtp && devOtp.length === 6) {
+      setOtp(devOtp.split(''));
+    }
+  }, [devOtp]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -38,6 +48,14 @@ export const OTPVerificationScreen: React.FC = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  const handleSelectMobileMethod = () => {
+    toast.show('Phone Number OTP verification is coming soon. Using Email OTP as primary.', {
+      type: 'warning',
+      placement: 'top',
+      duration: 4000,
+    });
+  };
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length <= 1 && /^[0-9]*$/.test(value)) {
@@ -74,7 +92,8 @@ export const OTPVerificationScreen: React.FC = () => {
 
     try {
       const result = await dispatch(verifyOTP({ 
-        mobile, 
+        email: method === 'email' ? targetEmail : undefined,
+        mobile: method === 'mobile' ? targetMobile : undefined,
         otp: otpCode, 
         purpose, 
         userData: purpose === 'registration' ? userData : undefined 
@@ -86,14 +105,14 @@ export const OTPVerificationScreen: React.FC = () => {
           placement: 'top',
         });
         
-        // Add 3-second delay before navigation
+        // Add 2-second delay before navigation
         setTimeout(() => {
           if (nextScreen === 'Main') {
             navigation.replace('Main');
           } else {
             navigation.replace(nextScreen as any);
           }
-        }, 3000);
+        }, 2000);
       }
     } catch (err: any) {
       toast.show('Invalid or expired OTP. Please try again.', {
@@ -107,9 +126,7 @@ export const OTPVerificationScreen: React.FC = () => {
     if (timer > 0) return;
 
     try {
-      // TODO: Implement resend OTP functionality
-      // For now, just show a message
-      toast.show('OTP resent successfully', {
+      toast.show(`OTP resent to ${targetEmail || 'your email'}`, {
         type: 'success',
         placement: 'top',
       });
@@ -133,9 +150,23 @@ export const OTPVerificationScreen: React.FC = () => {
             <Text variant="displaySmall" style={styles.title}>
               Verify OTP
             </Text>
+            
             <Text variant="bodyLarge" style={styles.subtitle}>
-              Enter the 6-digit code sent to {mobile}
+              Enter the 6-digit code sent to{' '}
+              <Text style={{ fontWeight: 'bold', color: colors.primary }}>
+                {method === 'email' 
+                  ? (targetEmail || 'your email') 
+                  : (targetMobile || 'your mobile number')}
+              </Text>
             </Text>
+
+            {devOtp && (
+              <View style={styles.devBanner}>
+                <Text style={styles.devBannerText}>
+                  Dev Mode OTP: <Text style={styles.devBannerCode}>{devOtp}</Text>
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.otpContainer}>
@@ -162,7 +193,7 @@ export const OTPVerificationScreen: React.FC = () => {
             style={styles.verifyButton}
             contentStyle={styles.buttonContent}
           >
-            Verify
+            Verify & Proceed
           </Button>
 
           <View style={styles.resendContainer}>
@@ -174,8 +205,32 @@ export const OTPVerificationScreen: React.FC = () => {
               onPress={handleResend}
               disabled={timer > 0}
             >
-              {timer > 0 ? `Resend in ${timer}s` : 'Resend'}
+              {timer > 0 ? `Resend in ${timer}s` : 'Resend Code'}
             </Button>
+          </View>
+
+          <View style={styles.switchMethodContainer}>
+            {method === 'email' ? (
+              <Button
+                mode="text"
+                onPress={handleSelectMobileMethod}
+                icon="cellphone-message"
+                textColor={colors.primary}
+                labelStyle={{ fontSize: 13, fontWeight: '600' }}
+              >
+                {targetMobile ? `Send code to mobile (${targetMobile})` : 'Send code to mobile number'}
+              </Button>
+            ) : (
+              <Button
+                mode="text"
+                onPress={() => setMethod('email')}
+                icon="email-outline"
+                textColor={colors.primary}
+                labelStyle={{ fontSize: 13, fontWeight: '600' }}
+              >
+                {targetEmail ? `Send code to email (${targetEmail})` : 'Send code to email address'}
+              </Button>
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -215,13 +270,32 @@ const createStyles = (colors: any) => StyleSheet.create({
   title: {
     color: colors.primary,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 16,
     textAlign: 'center',
   },
   subtitle: {
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: 8,
+  },
+  devBanner: {
+    marginTop: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    backgroundColor: colors.primaryContainer || 'rgba(37, 99, 235, 0.15)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  devBannerText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  devBannerCode: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    letterSpacing: 2,
   },
   otpContainer: {
     flexDirection: 'row',
@@ -252,10 +326,13 @@ const createStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
   },
   resendText: {
     color: colors.textSecondary,
+  },
+  switchMethodContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
   },
 });

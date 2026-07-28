@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func, String
 
 from app.config.database import get_db
 from app.models.eligibility import EligibilityRule, EligibilityCheck
@@ -189,9 +190,10 @@ async def check_all_schemes(
         if "type" in request.filters:
             query = query.filter(Scheme.type == request.filters["type"])
         if "state" in request.filters:
-            query = query.filter(Scheme.target_states.contains([request.filters["state"]]))
+            st_filter = f"%{request.filters['state']}%"
+            query = query.filter(func.cast(Scheme.target_states, String).ilike(st_filter))
     
-    schemes = query.all()
+    schemes = query.order_by(Scheme.created_at.desc(), Scheme.id.desc()).all()
     
     results = []
     for scheme in schemes:

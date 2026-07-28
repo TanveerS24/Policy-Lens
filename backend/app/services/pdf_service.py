@@ -321,11 +321,44 @@ class PDFProcessingService:
             data = json.loads(cleaned_resp)
             if not isinstance(data, dict):
                 raise Exception("Extracted data is not a valid JSON object")
+            if "eligibility_criteria" in data and data["eligibility_criteria"] is not None:
+                data["eligibility_criteria"] = str(data["eligibility_criteria"])
+
+            # Auto-detect target categories from document text if omitted or partial
+            text_upper = text.upper()
+            standard_map = {
+                "BPL": ["BPL", "BELOW POVERTY", "POOR", "LOW INCOME", "EWS", "FINANCIALLY WEAK"],
+                "Women": ["WOMEN", "WOMAN", "FEMALE", "MOTHER", "PREGNANT", "MATERNITY", "GIRL"],
+                "Children": ["CHILD", "CHILDREN", "INFANT", "KID", "TEEN", "PEDIATRIC", "NEWBORN"],
+                "Senior Citizens": ["SENIOR", "ELDERLY", "GERIATRIC", "OLD AGE", "60 YEARS", "PENSIONER", "AGED"],
+                "Disabled": ["DISABLED", "DISABILITY", "HANDICAPPED", "SPECIALLY ABLED", "DIVYANG", "PHYSICALLY CHALLENGED"]
+            }
+
+            extracted = data.get("target_categories")
+            if not isinstance(extracted, list):
+                extracted = []
+
+            auto_detected = set(extracted)
+            for cat, keywords in standard_map.items():
+                if any(kw in text_upper for kw in keywords):
+                    auto_detected.add(cat)
+
+            data["target_categories"] = list(auto_detected)
             return data
 
         except Exception as e:
             logger.error("ollama_scheme_extraction_failed", error=str(e))
             raise Exception(f"AI scheme extraction failed: {str(e)}")
+
+    def is_ai_healthy(self) -> bool:
+        """Check if AI service (Ollama) is online and reachable."""
+        try:
+            ollama_host = self._get_ollama_host()
+            response = requests.get(f"http://{ollama_host}:11434/api/tags", timeout=3)
+            return response.status_code == 200
+        except Exception as e:
+            logger.debug("pdf_service_ai_health_check_failed", error=str(e))
+            return False
 
     def check_eligibility(self, scheme_details: Dict[str, Any], user_profile: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -382,6 +415,10 @@ class PDFProcessingService:
 
     def _query_ollama(self, prompt: str, json_format: bool = False) -> str:
         """Query Ollama for RAG processing."""
+        if not self.is_ai_healthy():
+            logger.warning("ollama_service_offline")
+            raise Exception("AI Service (Ollama) is offline or unreachable. Please ensure Ollama is running.")
+
         try:
             ollama_host = self._get_ollama_host()
             ollama_url = f"http://{ollama_host}:11434/api/generate"
@@ -433,4 +470,142 @@ class PDFProcessingService:
                 continue
 
         return 'host.docker.internal'
+
+    def _tokenize(self, text: str) -> Dict[str, int]:
+        """Convert text into word frequency dictionary."""
+        words = re.findall(r'\b\w{3,}\b', text.lower())
+        freq: Dict[str, int] = {}
+        for w in words:
+            freq[w] = freq.get(w, 0) + 1
+        return freq
+
+    def _compute_cosine_similarity(self, text1: str, text2: str) -> float:
+        """Compute term frequency cosine similarity between two text strings."""
+        if not text1 or not text2:
+            return 0.0
+        vec1 = self._tokenize(text1)
+        vec2 = self._tokenize(text2)
+
+        intersection = set(vec1.keys()) & set(vec2.keys())
+        numerator = sum([vec1[x] * vec2[x] for x in intersection])
+
+        sum1 = sum([vec1[x] ** 2 for x in vec1.keys()])
+        sum2 = sum([vec2[x] ** 2 for x in vec2.keys()])
+        denominator = (sum1 ** 0.5) * (sum2 ** 0.5)
+
+        if not denominator:
+            return 0.0
+        return float(numerator) / denominator
+
+    def _calculate_jaccard_similarity(self, list1: list, list2: list) -> float:
+        """Compute Jaccard similarity index between two list sets."""
+        if not list1 or not list2:
+            return 0.0
+        s1 = set(str(item).strip().lower() for item in list1 if item)
+        s2 = set(str(item).strip().lower() for item in list2 if item)
+        if not s1 or not s2:
+            return 0.0
+        intersection = len(s1 & s2)
+        union = len(s1 | s2)
+        return float(intersection) / union if union > 0 else 0.0
+
+    def compare_document_with_schemes(
+        self,
+        db: Any,
+        document_text: str,
+        extracted_details: Dict[str, Any],
+        top_k: int = 5
+    ) -> Dict[str, Any]:
+        """
+        Compare uploaded document with existing active database schemes using
+        multi-factor Relevance Scoring (TF-IDF Cosine Similarity, Jaccard Service Match,
+        Category & Geographic Weights) without brute-force LLM iteration.
+        """
+        from app.models.scheme import Scheme
+
+        candidate_schemes = db.query(Scheme).filter(
+            Scheme.is_deleted == False,
+            Scheme.status == "active"
+        ).all()
+
+        if not candidate_schemes:
+            return {
+                "matched_schemes": [],
+                "comparison_summary": "No active schemes found in database for comparison.",
+                "total_schemes_evaluated": 0
+            }
+
+        doc_services = extracted_details.get("services_covered") or []
+        doc_categories = extracted_details.get("target_categories") or []
+        doc_state = (extracted_details.get("state") or "").lower()
+        doc_summary = extracted_details.get("about_scheme") or document_text[:2000]
+
+        scored_candidates = []
+
+        for scheme in candidate_schemes:
+            scheme_full_content = f"{scheme.name} {scheme.short_description or ''} {scheme.description or ''} {' '.join(scheme.services_covered or [])}"
+            text_sim = self._compute_cosine_similarity(doc_summary, scheme_full_content)
+            service_sim = self._calculate_jaccard_similarity(doc_services, scheme.services_covered or [])
+            category_sim = self._calculate_jaccard_similarity(doc_categories, scheme.target_categories or [])
+
+            geo_sim = 1.0
+            if scheme.type == "state" and scheme.state:
+                if doc_state and doc_state == scheme.state.lower():
+                    geo_sim = 1.0
+                elif not doc_state:
+                    geo_sim = 0.5
+                else:
+                    geo_sim = 0.1
+            elif scheme.type in ["national", "central"]:
+                geo_sim = 0.9
+
+            composite_score = (
+                (0.35 * text_sim) +
+                (0.35 * service_sim) +
+                (0.15 * category_sim) +
+                (0.15 * geo_sim)
+            ) * 100.0
+
+            relevance_score = round(min(100.0, max(0.0, composite_score)), 1)
+
+            scored_candidates.append({
+                "scheme_id": scheme.id,
+                "scheme_name": scheme.name,
+                "scheme_code": scheme.code,
+                "type": scheme.type,
+                "relevance_score": relevance_score,
+                "text_similarity_pct": round(text_sim * 100, 1),
+                "service_match_pct": round(service_sim * 100, 1),
+                "category_match_pct": round(category_sim * 100, 1),
+                "services_covered": scheme.services_covered or [],
+                "coverage_amount": float(scheme.coverage_amount) if scheme.coverage_amount else None,
+            })
+
+        scored_candidates.sort(key=lambda x: x["relevance_score"], reverse=True)
+        top_matches = scored_candidates[:top_k]
+
+        comparison_summary = f"Evaluated {len(candidate_schemes)} active schemes using Relevance Scoring. Found {len(top_matches)} top matches."
+
+        if top_matches and self.is_ai_healthy():
+            try:
+                top_names = [f"{m['scheme_name']} ({m['relevance_score']}% match)" for m in top_matches[:3]]
+                rag_prompt = f"""
+                Compare the uploaded document summary against these top matched existing schemes:
+                Uploaded Document: {doc_summary[:1000]}
+                Top Matching Existing Schemes: {', '.join(top_names)}
+
+                Provide a 2-3 sentence overview explaining how the uploaded document compares with these top matching schemes in terms of coverage and benefits.
+                """
+                summary_resp = self._query_ollama(rag_prompt)
+                if summary_resp and len(summary_resp.strip()) > 20:
+                    comparison_summary = summary_resp.strip()
+            except Exception as e:
+                logger.warning("comparison_rag_summary_failed", error=str(e))
+
+        return {
+            "matched_schemes": top_matches,
+            "comparison_summary": comparison_summary,
+            "total_schemes_evaluated": len(candidate_schemes)
+        }
+
 

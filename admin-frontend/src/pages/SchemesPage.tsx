@@ -87,7 +87,9 @@ export const SchemesPage: React.FC = () => {
       })
       return response.data.schemes as Scheme[]
     },
-    enabled: !!token
+    enabled: !!token,
+    refetchInterval: 5000, // Live auto-update when new schemes are added anywhere
+    refetchIntervalInBackground: true
   })
 
   // Update Scheme Mutation
@@ -145,10 +147,24 @@ export const SchemesPage: React.FC = () => {
     })
   }
 
+  const toggleEditCategory = (cat: string) => {
+    const currentList = editFormData.target_categories.split(',').map(s => s.trim()).filter(Boolean)
+    const updated = currentList.includes(cat)
+      ? currentList.filter(c => c !== cat)
+      : [...currentList, cat]
+    setEditFormData({ ...editFormData, target_categories: updated.join(', ') })
+  }
+
   // Handle Edit Submit
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingScheme) return
+
+    const categories = editFormData.target_categories.split(',').map(s => s.trim()).filter(Boolean)
+    if (categories.length === 0) {
+      triggerToast('warning', 'Target Category is mandatory! Please select at least one category (BPL, Women, Children, Senior Citizens, Disabled).')
+      return
+    }
 
     const payload = {
       name: editFormData.name,
@@ -159,7 +175,7 @@ export const SchemesPage: React.FC = () => {
       ministry: editFormData.ministry || undefined,
       state: editFormData.state || undefined,
       description: editFormData.description,
-      target_categories: editFormData.target_categories.split(',').map(s => s.trim()).filter(Boolean),
+      target_categories: categories,
       services_covered: editFormData.services_covered.split(',').map(s => s.trim()).filter(Boolean)
     }
 
@@ -540,14 +556,44 @@ export const SchemesPage: React.FC = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Target Categories (comma separated)</label>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Target Category <span className="text-red-500 font-bold">*</span> <span className="text-xs text-red-600 font-normal">(Mandatory — Select or type comma-separated)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200 mb-2">
+                    {['BPL', 'Women', 'Children', 'Senior Citizens', 'Disabled'].map((cat) => {
+                      const currentList = editFormData.target_categories.split(',').map(s => s.trim())
+                      const isChecked = currentList.includes(cat)
+                      return (
+                        <label
+                          key={cat}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md cursor-pointer border text-xs font-medium transition-colors ${
+                            isChecked
+                              ? 'bg-primary-50 border-primary-500 text-primary-700 font-bold'
+                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleEditCategory(cat)}
+                            className="rounded text-primary-600 focus:ring-primary-500 h-3.5 w-3.5"
+                          />
+                          <span>{cat}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
                   <input
                     type="text"
                     value={editFormData.target_categories}
+                    placeholder="e.g. BPL, Women, Children, Senior Citizens, Disabled"
                     onChange={(e) => setEditFormData({ ...editFormData, target_categories: e.target.value })}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
+                  {editFormData.target_categories.split(',').map(s => s.trim()).filter(Boolean).length === 0 && (
+                    <p className="text-xs text-red-500 mt-1 font-semibold">⚠️ Mandatory: Please select at least one category above.</p>
+                  )}
                 </div>
 
                 <div>

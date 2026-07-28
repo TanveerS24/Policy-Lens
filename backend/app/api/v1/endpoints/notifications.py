@@ -13,7 +13,7 @@ from app.models.scheme import Scheme
 from app.models.admin import AdminUser
 from app.api.v1.endpoints.patients import get_current_user
 from app.api.v1.endpoints.admin import get_current_admin
-from app.services.notification_service import purge_old_notifications
+from app.services.notification_service import purge_old_notifications, process_scheduled_broadcasts
 import structlog
 
 logger = structlog.get_logger()
@@ -81,6 +81,9 @@ async def get_notifications(
     db: Session = Depends(get_db)
 ):
     """Get user notifications (automatically purging notifications older than 30 days)."""
+    # Process any scheduled broadcasts that are now due
+    process_scheduled_broadcasts(db)
+
     # Automatically delete notifications older than 30 days (1 month)
     purge_old_notifications(db, days=30)
 
@@ -231,16 +234,21 @@ async def create_broadcast(
     # Get total user count for targeting
     user_count = db.query(User).filter(User.is_active == True).count()
     
+    # Normalize scheduled_at to UTC
+    sched_at = request.scheduled_at
+    if sched_at and sched_at.tzinfo is not None:
+        sched_at = sched_at.astimezone(timezone.utc).replace(tzinfo=None)
+
     broadcast = UserBroadcast(
         admin_id=admin.id,
         title=request.title,
         message=request.message,
         scheme_id=request.scheme_id,
-        scheduled_at=request.scheduled_at,
+        scheduled_at=sched_at,
         target_all_users=request.target_all_users,
         target_user_ids=request.target_user_ids,
         total_users=user_count,
-        status="scheduled" if request.scheduled_at else "sent"
+        status="scheduled" if sched_at else "sent"
     )
     
     db.add(broadcast)
@@ -248,8 +256,12 @@ async def create_broadcast(
     db.refresh(broadcast)
     
     # If immediate, create notifications for all users
-    if not request.scheduled_at:
+    if not sched_at:
         await send_broadcast_notifications(broadcast, db)
+    else:
+        # Check if due immediately
+        process_scheduled_broadcasts(db)
+        db.refresh(broadcast)
     
     return {
         "id": broadcast.id,
@@ -278,6 +290,9 @@ async def get_broadcasts(
     db: Session = Depends(get_db)
 ):
     """Get all broadcast notifications."""
+    # Process any scheduled broadcasts that are now due
+    process_scheduled_broadcasts(db)
+
     query = db.query(UserBroadcast).filter(UserBroadcast.admin_id == admin.id)
     
     if status:

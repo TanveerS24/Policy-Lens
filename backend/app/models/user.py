@@ -36,6 +36,7 @@ class User(Base):
     # Metadata
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    last_seen = Column(DateTime, nullable=True, default=lambda: datetime.now(timezone.utc))
     deactivated_at = Column(DateTime, nullable=True)
 
     # Relationships

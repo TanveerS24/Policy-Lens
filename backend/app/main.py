@@ -1,7 +1,7 @@
 """Main FastAPI application entry point."""
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
@@ -15,6 +15,27 @@ from app.config.database import engine, Base
 
 logger = structlog.get_logger()
 settings = get_settings()
+
+
+import asyncio
+from app.config.database import SessionLocal
+from app.services.notification_service import process_scheduled_broadcasts
+
+
+async def scheduled_broadcast_worker():
+    """Background worker that periodically dispatches scheduled notifications."""
+    while True:
+        try:
+            db = SessionLocal()
+            try:
+                process_scheduled_broadcasts(db)
+            finally:
+                db.close()
+        except asyncio.CancelledError:
+            break
+        except Exception as err:
+            logger.error("scheduled_broadcast_worker_error", error=str(err))
+        await asyncio.sleep(20)
 
 
 @asynccontextmanager
@@ -63,6 +84,15 @@ async def lifespan(app: FastAPI):
                         conn.commit()
                         logger.info("migration_applied", column=col_name, table="documents")
 
+            if "users" in existing_tables:
+                user_columns = [col["name"] for col in inspector.get_columns("users")]
+                if "last_seen" not in user_columns:
+                    conn.execute(
+                        text("ALTER TABLE users ADD COLUMN last_seen TIMESTAMP WITH TIME ZONE")
+                    )
+                    conn.commit()
+                    logger.info("migration_applied", column="last_seen", table="users")
+
             if "ai_summaries" in existing_tables:
                 ai_columns = [col["name"] for col in inspector.get_columns("ai_summaries")]
                 if "eligibility_criteria" not in ai_columns:
@@ -74,9 +104,13 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error("startup_migration_failed", error=str(exc))
 
+    # Start background worker for scheduled notifications
+    worker_task = asyncio.create_task(scheduled_broadcast_worker())
+
     yield
 
     # --- Shutdown ---
+    worker_task.cancel()
     logger.info("application_shutdown", app_name=settings.APP_NAME)
 
 
@@ -160,6 +194,29 @@ app = create_application()
 
 @app.get("/health")
 @app.get("/api/health")
+@app.get("/api/v1/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "version": "1.0.0"}
+    """Health check endpoint including AI service status."""
+    from app.services.pdf_service import PDFProcessingService
+    pdf_service = PDFProcessingService()
+    ai_online = pdf_service.is_ai_healthy()
+    return {
+        "status": "healthy",
+        "version": "1.0.0",
+        "ai_service": "online" if ai_online else "offline"
+    }
+
+
+@app.get("/api/v1/health/ai")
+async def ai_health_check():
+    """AI health check endpoint for clients before sending AI requests."""
+    from app.services.pdf_service import PDFProcessingService
+    pdf_service = PDFProcessingService()
+    ai_online = pdf_service.is_ai_healthy()
+    if not ai_online:
+        raise HTTPException(
+            status_code=503,
+            detail="AI service is offline. Please ensure Ollama is running."
+        )
+    return {"status": "online", "message": "AI service is running"}
+

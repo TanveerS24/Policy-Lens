@@ -1,51 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { api } from '../../services/api';
-import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const isWeb = Platform.OS === 'web';
-
-// Use the same storage utility as api.ts
-const storage = {
-  async getItemAsync(key: string): Promise<string | null> {
-    try {
-      if (isWeb) {
-        return await AsyncStorage.getItem(key);
-      } else {
-        return await SecureStore.getItemAsync(key);
-      }
-    } catch (error) {
-      console.error(`Error getting ${key} from storage:`, error);
-      return null;
-    }
-  },
-  
-  async setItemAsync(key: string, value: string): Promise<void> {
-    try {
-      if (isWeb) {
-        await AsyncStorage.setItem(key, value);
-      } else {
-        await SecureStore.setItemAsync(key, value);
-      }
-    } catch (error) {
-      console.error(`Error setting ${key} in storage:`, error);
-      throw error;
-    }
-  },
-  
-  async deleteItemAsync(key: string): Promise<void> {
-    try {
-      if (isWeb) {
-        await AsyncStorage.removeItem(key);
-      } else {
-        await SecureStore.deleteItemAsync(key);
-      }
-    } catch (error) {
-      console.error(`Error deleting ${key} from storage:`, error);
-    }
-  }
-};
+import { storage } from '../../services/storage';
 
 interface User {
   id: number;
@@ -110,49 +65,62 @@ export const register = createAsyncThunk(
 
 export const requestOTP = createAsyncThunk(
   'auth/requestOTP',
-  async ({ mobile, purpose }: { mobile: string; purpose: string }) => {
-    const response = await api.post('/auth/request-otp', { mobile, purpose });
-    return response.data;
+  async ({ email, mobile, purpose }: { email?: string; mobile?: string; purpose: string }, { rejectWithValue }) => {
+    try {
+      const payload: any = { purpose };
+      if (email && email.trim()) payload.email = email.trim();
+      if (mobile && mobile.trim()) payload.mobile = mobile.trim();
+      const response = await api.post('/auth/request-otp', payload);
+      return response.data;
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || 'Failed to request OTP';
+      return rejectWithValue(detail);
+    }
   }
 );
 
 export const verifyOTP = createAsyncThunk(
   'auth/verifyOTP',
-  async ({ mobile, otp, purpose, userData }: { mobile: string; otp: string; purpose: string; userData?: any }) => {
-    // If purpose is registration and userData is provided, complete registration
-    if (purpose === 'registration' && userData) {
-      // Map frontend camelCase to backend snake_case and convert date format
-      const backendUserData = {
-        name: userData.name,
-        email: userData.email || null,
-        mobile: userData.mobile,
-        date_of_birth: userData.dateOfBirth, // Convert date format below
-        gender: userData.gender,
-        state: userData.state,
-        district: userData.district,
-        pin_code: userData.pinCode,
-        password: userData.password,
-        otp: otp
-      };
-      
-      // Convert date format from DD-MM-YYYY to YYYY-MM-DD for backend
-      if (backendUserData.date_of_birth) {
-        const [day, month, year] = backendUserData.date_of_birth.split('-');
-        backendUserData.date_of_birth = `${year}-${month}-${day}`;
+  async ({ email, mobile, otp, purpose, userData }: { email?: string; mobile?: string; otp: string; purpose: string; userData?: any }, { rejectWithValue }) => {
+    try {
+      if (purpose === 'registration' && userData) {
+        const backendUserData = {
+          name: userData.name,
+          email: (userData.email || email || '').trim() || null,
+          mobile: (userData.mobile || mobile || '').trim(),
+          date_of_birth: userData.dateOfBirth,
+          gender: userData.gender,
+          state: userData.state,
+          district: userData.district,
+          pin_code: userData.pinCode,
+          password: userData.password,
+          otp: otp
+        };
+
+        if (backendUserData.date_of_birth && backendUserData.date_of_birth.includes('-')) {
+          const parts = backendUserData.date_of_birth.split('-');
+          if (parts.length === 3 && parts[0].length === 2) {
+            const [day, month, year] = parts;
+            backendUserData.date_of_birth = `${year}-${month}-${day}`;
+          }
+        }
+
+        const registerResponse = await api.post('/auth/register', backendUserData);
+        await storage.setItemAsync('accessToken', registerResponse.data.access_token);
+        await storage.setItemAsync('refreshToken', registerResponse.data.refresh_token);
+
+        return { ...registerResponse.data, verified: true };
       }
-      
-      const registerResponse = await api.post('/auth/register', backendUserData);
-      
-      // Save tokens securely
-      await storage.setItemAsync('accessToken', registerResponse.data.access_token);
-      await storage.setItemAsync('refreshToken', registerResponse.data.refresh_token);
-      
-      return { ...registerResponse.data, verified: true };
+
+      const payload: any = { otp };
+      if (email && email.trim()) payload.email = email.trim();
+      if (mobile && mobile.trim()) payload.mobile = mobile.trim();
+      const verifyResponse = await api.post('/auth/verify-otp', payload);
+      return { ...verifyResponse.data, verified: true };
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || 'Verification failed';
+      return rejectWithValue(detail);
     }
-    
-    // Just verify OTP for other purposes
-    const verifyResponse = await api.post('/auth/verify-otp', { mobile, otp });
-    return { ...verifyResponse.data, verified: true };
   }
 );
 

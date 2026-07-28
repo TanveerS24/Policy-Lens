@@ -1,7 +1,7 @@
 """Admin endpoints."""
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import FileResponse
@@ -94,6 +94,15 @@ class SchemeExtractResponse(BaseModel):
     website: Optional[str] = None
     helpline: Optional[str] = None
     full_document_text: Optional[str] = None
+    matched_schemes: List[Dict[str, Any]] = []
+    comparison_summary: Optional[str] = None
+
+    @field_validator("eligibility_criteria", "about_scheme", mode="before")
+    @classmethod
+    def coerce_strings(cls, v):
+        if v is None:
+            return ""
+        return str(v)
 
 
 class PublishSchemeRequest(BaseModel):
@@ -338,7 +347,7 @@ async def list_all_schemes(
         query = query.filter(Scheme.name.ilike(search_filter))
     
     total = query.count()
-    schemes = query.offset((page - 1) * per_page).limit(per_page).all()
+    schemes = query.order_by(Scheme.created_at.desc(), Scheme.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
     
     return {
         "schemes": [s.to_dict() for s in schemes],
@@ -358,6 +367,12 @@ async def create_scheme(
     db: Session = Depends(get_db)
 ):
     """Create a new scheme."""
+    if not request.target_categories or len(request.target_categories) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Target categories field is mandatory. Please select at least one category (BPL, Women, Children, Senior Citizens, Disabled)."
+        )
+
     # Check if code exists
     existing = db.query(Scheme).filter(Scheme.code == request.code).first()
     if existing:
@@ -456,6 +471,11 @@ async def update_scheme(
     if request.state is not None:
         scheme.state = request.state
     if request.target_categories is not None:
+        if len(request.target_categories) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Target categories field is mandatory. Please select at least one category (BPL, Women, Children, Senior Citizens, Disabled)."
+            )
         scheme.target_categories = request.target_categories
     if request.services_covered is not None:
         scheme.services_covered = request.services_covered
@@ -560,6 +580,7 @@ async def list_users(
                 "is_active": u.is_active,
                 "is_verified": u.is_verified,
                 "created_at": u.created_at.isoformat() if u.created_at else None,
+                "last_seen": u.last_seen.isoformat() if getattr(u, "last_seen", None) else None,
             }
             for u in users
         ],
@@ -869,6 +890,12 @@ async def extract_scheme_from_pdf(
     db: Session = Depends(get_db)
 ):
     """Extract scheme information from uploaded PDF using enhanced processing."""
+    if not pdf_service.is_ai_healthy():
+        raise HTTPException(
+            status_code=503,
+            detail="AI Service is currently offline or unreachable. Please ensure Ollama is running with: ollama serve"
+        )
+
     # Check if file exists in temp storage
     if file_id not in temp_pdf_storage:
         raise HTTPException(status_code=404, detail="File not found. Please upload the PDF first.")
@@ -926,6 +953,8 @@ async def extract_scheme_from_pdf(
         except (ValueError, TypeError):
             parsed_max_age = None
 
+    comparison = pdf_service.compare_document_with_schemes(db, pdf_text, scheme_details)
+
     return {
         "eligibility_criteria": scheme_details.get("eligibility_criteria", ""),
         "about_scheme": scheme_details.get("about_scheme", ""),
@@ -943,7 +972,9 @@ async def extract_scheme_from_pdf(
         "required_documents": scheme_details.get("required_documents") if isinstance(scheme_details.get("required_documents"), list) else [],
         "website": scheme_details.get("website") or "",
         "helpline": scheme_details.get("helpline") or "",
-        "full_document_text": pdf_text
+        "full_document_text": pdf_text,
+        "matched_schemes": comparison.get("matched_schemes", []),
+        "comparison_summary": comparison.get("comparison_summary", "")
     }
 
 
@@ -984,6 +1015,12 @@ async def publish_scheme(
     db: Session = Depends(get_db)
 ):
     """Publish scheme and notify all users."""
+    if not request.target_categories or len(request.target_categories) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Target categories field is mandatory. Please select at least one category (BPL, Women, Children, Senior Citizens, Disabled)."
+        )
+
     # Check if code exists
     existing = db.query(Scheme).filter(Scheme.code == request.code).first()
     if existing:

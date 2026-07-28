@@ -120,13 +120,15 @@ export const ProfileScreen: React.FC = () => {
           )}
         </View>
 
-        <Card style={[styles.infoCard, { backgroundColor: colors.cardBg }]}>
+        <Card style={[styles.infoCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
           <Card.Content>
             <View style={styles.infoRow}>
               <Text variant="bodyMedium" style={styles.infoLabel}>Member Since</Text>
-              <Text variant="bodyMedium">{new Date().toLocaleDateString('en-IN')}</Text>
+              <Text variant="bodyMedium" style={[styles.infoValue, { color: colors.textPrimary }]}>
+                {new Date().toLocaleDateString('en-IN')}
+              </Text>
             </View>
-            <Divider style={styles.divider} />
+            <Divider style={[styles.divider, { backgroundColor: colors.border }]} />
             <View style={styles.infoRow}>
               <Text variant="bodyMedium" style={styles.infoLabel}>Account Status</Text>
               <Text variant="bodyMedium" style={styles.activeStatus}>Active</Text>
@@ -134,7 +136,7 @@ export const ProfileScreen: React.FC = () => {
           </Card.Content>
         </Card>
 
-        <Card style={[styles.themeCard, { backgroundColor: colors.cardBg }]}>
+        <Card style={[styles.themeCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
           <Card.Content>
             <Text variant="titleMedium" style={[styles.themeTitle, { color: colors.textPrimary }]}>
               Appearance
@@ -148,7 +150,7 @@ export const ProfileScreen: React.FC = () => {
                 style={[
                   styles.themeOption,
                   currentTheme === 'light' && styles.themeOptionActive,
-                  { borderColor: currentTheme === 'light' ? colors.primary : colors.border }
+                  { backgroundColor: colors.cardBg, borderColor: currentTheme === 'light' ? colors.primary : colors.border }
                 ]}
                 onPress={() => setTheme('light')}
               >
@@ -158,7 +160,7 @@ export const ProfileScreen: React.FC = () => {
                     <View style={[styles.themePreviewDot, { backgroundColor: '#F4A261' }]} />
                   </View>
                   <Text style={[styles.themeOptionText, { color: colors.textPrimary }]}>Light</Text>
-                  <Text style={[styles.themeOptionSubtext, { color: colors.textMuted }]}>Silver & Peach Blue</Text>
+                  <Text style={[styles.themeOptionSubtext, { color: colors.textMuted || colors.textSecondary }]}>Silver & Peach Blue</Text>
                   {currentTheme === 'light' && (
                     <View style={[styles.checkmark, { backgroundColor: colors.primary }]}>
                       <Text style={styles.checkmarkText}>✓</Text>
@@ -171,7 +173,7 @@ export const ProfileScreen: React.FC = () => {
                 style={[
                   styles.themeOption,
                   currentTheme === 'dark' && styles.themeOptionActive,
-                  { borderColor: currentTheme === 'dark' ? colors.primary : colors.border }
+                  { backgroundColor: colors.cardBg, borderColor: currentTheme === 'dark' ? colors.primary : colors.border }
                 ]}
                 onPress={() => setTheme('dark')}
               >
@@ -181,7 +183,7 @@ export const ProfileScreen: React.FC = () => {
                     <View style={[styles.themePreviewDot, { backgroundColor: '#FD971F' }]} />
                   </View>
                   <Text style={[styles.themeOptionText, { color: colors.textPrimary }]}>Dark</Text>
-                  <Text style={[styles.themeOptionSubtext, { color: colors.textMuted }]}>Monokai Theme</Text>
+                  <Text style={[styles.themeOptionSubtext, { color: colors.textMuted || colors.textSecondary }]}>Monokai Theme</Text>
                   {currentTheme === 'dark' && (
                     <View style={[styles.checkmark, { backgroundColor: colors.primary }]}>
                       <Text style={styles.checkmarkText}>✓</Text>
@@ -193,7 +195,7 @@ export const ProfileScreen: React.FC = () => {
           </Card.Content>
         </Card>
 
-        <View style={[styles.listSection, { backgroundColor: colors.cardBg }]}>
+        <View style={[styles.listSection, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
           <List.Section>
             <List.Subheader style={{ color: colors.textPrimary }}>Settings</List.Subheader>
             {menuItems.map((item, index) => (
@@ -209,7 +211,7 @@ export const ProfileScreen: React.FC = () => {
           </List.Section>
         </View>
 
-        <View style={[styles.listSection, { backgroundColor: colors.cardBg }]}>
+        <View style={[styles.listSection, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
           <List.Section>
             <List.Subheader style={{ color: colors.textPrimary }}>Legal & Support</List.Subheader>
             {legalItems.map((item, index) => (
@@ -252,31 +254,70 @@ export const ProfileScreen: React.FC = () => {
       </ScrollView>
 
       <Portal>
-        <Dialog visible={logoutDialogVisible} onDismiss={() => setLogoutDialogVisible(false)}>
-          <Dialog.Title>Log Out</Dialog.Title>
+        <Dialog
+          visible={logoutDialogVisible}
+          onDismiss={() => setLogoutDialogVisible(false)}
+          style={[styles.dialogContainer, { backgroundColor: colors.cardBg }]}
+        >
+          <Dialog.Title style={[styles.dialogTitle, { color: colors.textPrimary }]}>Log Out</Dialog.Title>
           <Dialog.Content>
-            <Text variant="bodyMedium">Are you sure you want to log out?</Text>
+            <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
+              Are you sure you want to log out?
+            </Text>
           </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setLogoutDialogVisible(false)}>Cancel</Button>
-            <Button onPress={confirmLogout}>Log Out</Button>
+          <Dialog.Actions style={styles.dialogActions}>
+            <Button
+              mode="outlined"
+              onPress={() => setLogoutDialogVisible(false)}
+              style={styles.dialogCancelBtn}
+              labelStyle={{ color: colors.textSecondary }}
+            >
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              onPress={confirmLogout}
+              style={[styles.dialogConfirmBtn, { backgroundColor: colors.error }]}
+              textColor="#FFFFFF"
+            >
+              Log Out
+            </Button>
           </Dialog.Actions>
         </Dialog>
 
-        <Dialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)}>
-          <Dialog.Title>Delete Account</Dialog.Title>
+        <Dialog
+          visible={deleteDialogVisible}
+          onDismiss={() => setDeleteDialogVisible(false)}
+          style={[styles.dialogContainer, { backgroundColor: colors.cardBg }]}
+        >
+          <Dialog.Title style={[styles.dialogTitle, { color: colors.error }]}>Delete Account</Dialog.Title>
           <Dialog.Content>
-            <Text variant="bodyMedium">
+            <Text variant="bodyMedium" style={{ color: colors.textSecondary, marginBottom: 12 }}>
               This action cannot be undone. All your data will be permanently deleted.
             </Text>
             <TextInput
               label="Type DELETE to confirm"
+              mode="outlined"
               style={styles.confirmInput}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.error}
             />
           </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setDeleteDialogVisible(false)}>Cancel</Button>
-            <Button onPress={confirmDelete} textColor={colors.error}>
+          <Dialog.Actions style={styles.dialogActions}>
+            <Button
+              mode="outlined"
+              onPress={() => setDeleteDialogVisible(false)}
+              style={styles.dialogCancelBtn}
+              labelStyle={{ color: colors.textSecondary }}
+            >
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              onPress={confirmDelete}
+              style={[styles.dialogConfirmBtn, { backgroundColor: colors.error }]}
+              textColor="#FFFFFF"
+            >
               Delete
             </Button>
           </Dialog.Actions>
@@ -300,6 +341,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    marginBottom: 6,
   },
   avatar: {
     backgroundColor: colors.secondary,
@@ -321,31 +363,39 @@ const createStyles = (colors: any) => StyleSheet.create({
     textAlign: 'center',
   },
   infoCard: {
-    marginHorizontal: 12,
-    marginVertical: 8,
+    marginHorizontal: 16,
+    marginVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
     elevation: 1,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 0,
   },
   infoLabel: {
     color: colors.textSecondary,
     flex: 1,
+    fontSize: 14,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   activeStatus: {
     color: colors.success,
     fontWeight: '600',
+    fontSize: 14,
     textAlign: 'right',
   },
   divider: {
-    marginVertical: 4,
+    marginVertical: 2,
   },
   actionButtons: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 16,
     gap: 10,
   },
@@ -364,14 +414,17 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginTop: 12,
   },
   listSection: {
-    marginHorizontal: 12,
+    marginHorizontal: 16,
     marginVertical: 6,
-    borderRadius: 12,
+    borderRadius: 16,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   themeCard: {
-    marginHorizontal: 12,
+    marginHorizontal: 16,
     marginVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
     elevation: 1,
   },
   themeTitle: {
@@ -388,7 +441,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   themeOption: {
     flex: 1,
     borderWidth: 2,
-    borderRadius: 12,
+    borderRadius: 14,
   },
   themeOptionActive: {
     borderWidth: 2,
@@ -437,5 +490,31 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: 'bold',
+  },
+  dialogContainer: {
+    width: '88%',
+    maxWidth: 380,
+    alignSelf: 'center',
+    borderRadius: 20,
+    paddingVertical: 4,
+  },
+  dialogTitle: {
+    fontWeight: 'bold',
+    fontSize: 20,
+  },
+  dialogActions: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  dialogCancelBtn: {
+    borderRadius: 10,
+    borderColor: colors.border,
+  },
+  dialogConfirmBtn: {
+    borderRadius: 10,
   },
 });

@@ -64,7 +64,20 @@ const uploadPDF = async (file: File, token: string, onProgress: (progress: numbe
   return response.data
 }
 
+const checkAIHealth = async () => {
+  try {
+    const res = await axios.get(`${API_URL}/health/ai`, { timeout: 4000 })
+    if (res.data?.status !== 'online') {
+      throw new Error('AI Service is currently offline. Please ensure Ollama is running.')
+    }
+  } catch (err: any) {
+    const msg = err.response?.data?.detail || 'AI Service is currently offline. Please ensure Ollama is running.'
+    throw new Error(msg)
+  }
+}
+
 const extractFromPDF = async (fileId: string, token: string): Promise<ExtractedData> => {
+  await checkAIHealth()
   const formData = new FormData()
   formData.append('file_id', fileId)
   
@@ -78,6 +91,7 @@ const extractFromPDF = async (fileId: string, token: string): Promise<ExtractedD
 }
 
 const regenerateFromPDF = async (file: File, token: string): Promise<ExtractedData> => {
+  await checkAIHealth()
   const formData = new FormData()
   formData.append('file', file)
   
@@ -257,7 +271,44 @@ export const AddSchemePage: React.FC = () => {
     }
   }
 
+  const CATEGORY_OPTIONS = ['BPL', 'Women', 'Children', 'Senior Citizens', 'Disabled']
+  const [customCategoryInput, setCustomCategoryInput] = useState('')
+
+  const toggleCategory = (cat: string) => {
+    setFormData(prev => {
+      const current = prev.target_categories || []
+      const updated = current.includes(cat)
+        ? current.filter(c => c !== cat)
+        : [...current, cat]
+      return { ...prev, target_categories: updated }
+    })
+  }
+
+  const addCustomCategory = () => {
+    const trimmed = customCategoryInput.trim()
+    if (!trimmed) return
+    setFormData(prev => {
+      const current = prev.target_categories || []
+      if (current.includes(trimmed)) return prev
+      return { ...prev, target_categories: [...current, trimmed] }
+    })
+    setCustomCategoryInput('')
+  }
+
+  const removeCategory = (cat: string) => {
+    setFormData(prev => ({
+      ...prev,
+      target_categories: (prev.target_categories || []).filter(c => c !== cat)
+    }))
+  }
+
   const handlePublish = () => {
+    if (!formData.target_categories || formData.target_categories.length === 0) {
+      showToast('error', 'Target category is mandatory! Please select at least one category (BPL, Women, Children, Senior Citizens, Disabled).')
+      setError('Target category is mandatory! Please select at least one category (BPL, Women, Children, Senior Citizens, Disabled).')
+      return
+    }
+
     const payload = {
       ...formData,
       file_id: uploadedFileId,
@@ -483,6 +534,81 @@ export const AddSchemePage: React.FC = () => {
                   placeholder="e.g., Ministry of Health & Family Welfare"
                 />
               </div>
+            </div>
+
+            {/* Target Category (Mandatory) */}
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Target Category <span className="text-red-500 font-bold">*</span> <span className="text-xs text-purple-600 font-medium">(AI Auto-detected — Select/edit below or add custom)</span>
+              </label>
+              <div className="flex flex-wrap gap-2.5 p-3 bg-gray-50 rounded-lg border border-gray-200 mb-3">
+                {CATEGORY_OPTIONS.map((cat) => {
+                  const isChecked = (formData.target_categories || []).includes(cat)
+                  return (
+                    <label
+                      key={cat}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer border text-sm font-medium transition-colors ${
+                        isChecked
+                          ? 'bg-purple-50 border-purple-500 text-purple-700 font-semibold'
+                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleCategory(cat)}
+                        className="rounded text-purple-600 focus:ring-purple-500"
+                      />
+                      <span>{cat}</span>
+                    </label>
+                  )
+                })}
+              </div>
+
+              {/* Extra / Custom Extracted Category Chips */}
+              {(formData.target_categories || []).filter(c => !CATEGORY_OPTIONS.includes(c)).length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <span className="text-xs font-semibold text-gray-500 self-center">Additional Categories:</span>
+                  {(formData.target_categories || []).filter(c => !CATEGORY_OPTIONS.includes(c)).map((cat) => (
+                    <span
+                      key={cat}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200"
+                    >
+                      {cat}
+                      <button
+                        type="button"
+                        onClick={() => removeCategory(cat)}
+                        className="hover:text-purple-950 font-bold ml-1"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Add Custom Category Input */}
+              <div className="flex items-center gap-2 max-w-md">
+                <input
+                  type="text"
+                  value={customCategoryInput}
+                  onChange={(e) => setCustomCategoryInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomCategory(); } }}
+                  placeholder="Add custom target category..."
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <button
+                  type="button"
+                  onClick={addCustomCategory}
+                  className="px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors"
+                >
+                  + Add Category
+                </button>
+              </div>
+
+              {(!formData.target_categories || formData.target_categories.length === 0) && (
+                <p className="text-xs text-red-500 mt-1.5 font-semibold">⚠️ Mandatory: Please select at least one category above.</p>
+              )}
             </div>
           </div>
 

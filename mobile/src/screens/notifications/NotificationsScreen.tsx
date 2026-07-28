@@ -32,6 +32,10 @@ export const NotificationsScreen: React.FC = () => {
 
   useEffect(() => {
     loadNotifications();
+    const interval = setInterval(() => {
+      loadNotifications();
+    }, 6000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadNotifications = async () => {

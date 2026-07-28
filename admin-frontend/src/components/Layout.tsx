@@ -1,13 +1,13 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { 
-  LayoutDashboard, 
-  FileText, 
+import {
+  LayoutDashboard,
+  FileText,
   FileCheck,
-  Users, 
-  ClipboardList, 
+  Users,
+  ClipboardList,
   Bell,
-  Settings, 
+  Settings,
   LogOut,
   Menu,
   X
@@ -56,14 +56,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Mobile sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div 
-            className="fixed inset-0 bg-gray-900/50" 
-            onClick={() => setSidebarOpen(false)} 
+          <div
+            className="fixed inset-0 bg-gray-900/50"
+            onClick={() => setSidebarOpen(false)}
           />
           <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg">
-            <SidebarContent 
-              navigation={navigation} 
-              location={location} 
+            <SidebarContent
+              navigation={navigation}
+              location={location}
               user={user}
               onLogout={logout}
               onClose={() => setSidebarOpen(false)}
@@ -75,9 +75,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 pb-4">
-          <SidebarContent 
-            navigation={navigation} 
-            location={location} 
+          <SidebarContent
+            navigation={navigation}
+            location={location}
             user={user}
             onLogout={logout}
           />
@@ -129,16 +129,16 @@ interface SidebarContentProps {
   onClose?: () => void
 }
 
-const SidebarContent: React.FC<SidebarContentProps> = ({ 
-  navigation, 
-  location, 
+const SidebarContent: React.FC<SidebarContentProps> = ({
+  navigation,
+  location,
   onLogout,
-  onClose 
+  onClose
 }) => (
   <>
     <div className="flex h-16 shrink-0 items-center justify-between">
       <h1 className="text-xl font-bold text-primary-600">
-        DentalSchemes
+        Policy Lens Admin
       </h1>
       {onClose && (
         <button onClick={onClose} className="lg:hidden">
@@ -146,7 +146,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
         </button>
       )}
     </div>
-    
+
     <nav className="flex flex-1 flex-col">
       <ul role="list" className="flex flex-1 flex-col gap-y-7">
         <li>
@@ -171,7 +171,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
             ))}
           </ul>
         </li>
-        
+
         <li className="mt-auto">
           <button
             onClick={onLogout}

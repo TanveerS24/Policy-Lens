@@ -90,7 +90,7 @@ export const ReviewRequestsPage: React.FC = () => {
     description: '',
     eligibility_criteria: '',
     coverage_amount: 10000,
-    target_categories: 'General Citizens, Low Income',
+    target_categories: 'BPL, Women, Children, Senior Citizens, Disabled',
     services_covered: 'Consultation, Cleaning, Extraction'
   })
 
@@ -112,7 +112,9 @@ export const ReviewRequestsPage: React.FC = () => {
       })
       return response.data.review_requests as ReviewRequest[]
     },
-    enabled: !!token
+    enabled: !!token,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true
   })
 
   // Fetch single request details when modal opens

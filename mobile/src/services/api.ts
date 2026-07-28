@@ -1,50 +1,7 @@
 // Storage utility - uses SecureStore for native, AsyncStorage for web
 import axios from 'axios';
 import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const isWeb = Platform.OS === 'web';
-
-const storage = {
-  async getItemAsync(key: string): Promise<string | null> {
-    try {
-      if (isWeb) {
-        return await AsyncStorage.getItem(key);
-      } else {
-        return await SecureStore.getItemAsync(key);
-      }
-    } catch (error) {
-      console.error(`Error getting ${key} from storage:`, error);
-      return null;
-    }
-  },
-  
-  async setItemAsync(key: string, value: string): Promise<void> {
-    try {
-      if (isWeb) {
-        await AsyncStorage.setItem(key, value);
-      } else {
-        await SecureStore.setItemAsync(key, value);
-      }
-    } catch (error) {
-      console.error(`Error setting ${key} in storage:`, error);
-      throw error;
-    }
-  },
-  
-  async deleteItemAsync(key: string): Promise<void> {
-    try {
-      if (isWeb) {
-        await AsyncStorage.removeItem(key);
-      } else {
-        await SecureStore.deleteItemAsync(key);
-      }
-    } catch (error) {
-      console.error(`Error deleting ${key} from storage:`, error);
-    }
-  }
-};
+import { storage } from './storage';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -134,3 +91,13 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const checkAIHealth = async (): Promise<boolean> => {
+  try {
+    const response = await api.get('/health/ai', { timeout: 4000 });
+    return response.data?.status === 'online';
+  } catch (error) {
+    return false;
+  }
+};
+

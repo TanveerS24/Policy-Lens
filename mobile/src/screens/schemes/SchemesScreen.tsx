@@ -56,6 +56,10 @@ export const SchemesScreen: React.FC = () => {
 
   useEffect(() => {
     loadSchemes(1);
+    const interval = setInterval(() => {
+      loadSchemes(1);
+    }, 10000);
+    return () => clearInterval(interval);
   }, [loadSchemes]);
 
   const onRefresh = async () => {

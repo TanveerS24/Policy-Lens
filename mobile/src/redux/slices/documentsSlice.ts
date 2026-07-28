@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Platform } from 'react-native';
-import { api } from '../../services/api';
+import { api, checkAIHealth } from '../../services/api';
 
 export interface Document {
   id: number;
@@ -62,7 +62,12 @@ export const fetchDocumentById = createAsyncThunk(
 
 export const uploadDocument = createAsyncThunk(
   'documents/uploadDocument',
-  async (file: { uri: string; name: string; type: string; fileObj?: any }) => {
+  async (file: { uri: string; name: string; type: string; fileObj?: any }, { rejectWithValue }) => {
+    const isOnline = await checkAIHealth();
+    if (!isOnline) {
+      return rejectWithValue('AI Service is currently offline. Please ensure the AI service (Ollama) is running.');
+    }
+
     const formData = new FormData();
     
     if (Platform.OS === 'web') {
@@ -123,7 +128,12 @@ export const requestPublishDocument = createAsyncThunk(
 
 export const reanalyzeDocument = createAsyncThunk(
   'documents/reanalyzeDocument',
-  async (documentId: number) => {
+  async (documentId: number, { rejectWithValue }) => {
+    const isOnline = await checkAIHealth();
+    if (!isOnline) {
+      return rejectWithValue('AI Service is currently offline. Please ensure the AI service (Ollama) is running.');
+    }
+
     const response = await api.post(`/documents/${documentId}/reanalyze`);
     return { documentId, status: response.data.status };
   }

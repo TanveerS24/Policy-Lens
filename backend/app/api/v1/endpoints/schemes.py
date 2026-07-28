@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.security import HTTPBearer
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func, String
 from pydantic import BaseModel
 import os
 
@@ -53,13 +54,16 @@ async def list_schemes(
     if type:
         query = query.filter(Scheme.type == type)
     if state:
+        state_filter = f"%{state}%"
         query = query.filter(
-            (Scheme.state == state) | (Scheme.target_states.contains([state]))
+            (Scheme.state == state) | (func.cast(Scheme.target_states, String).ilike(state_filter))
         )
     if category:
-        query = query.filter(Scheme.target_categories.contains([category]))
+        cat_filter = f"%{category}%"
+        query = query.filter(func.cast(Scheme.target_categories, String).ilike(cat_filter))
     if service:
-        query = query.filter(Scheme.services_covered.contains([service]))
+        srv_filter = f"%{service}%"
+        query = query.filter(func.cast(Scheme.services_covered, String).ilike(srv_filter))
     if search:
         search_filter = f"%{search}%"
         query = query.filter(
@@ -68,6 +72,9 @@ async def list_schemes(
             Scheme.ministry.ilike(search_filter)
         )
     
+    # Order by created_at desc (newest first)
+    query = query.order_by(Scheme.created_at.desc(), Scheme.id.desc())
+
     # Get total count
     total = query.count()
     

@@ -177,37 +177,50 @@ export const RegisterScreen: React.FC = () => {
       return;
     }
 
-    // Request OTP
+    // Request OTP via Email (Primary)
     try {
-      const result = await dispatch(requestOTP({ mobile: formData.mobile, purpose: 'registration' })).unwrap();
-      
-      toast.show('OTP sent to your mobile number', {
+      const targetEmail = formData.email || undefined;
+      const targetMobile = formData.mobile || undefined;
+      const result = await dispatch(requestOTP({ 
+        email: targetEmail, 
+        mobile: targetMobile, 
+        purpose: 'registration' 
+      })).unwrap();
+
+      const devOtp = result?.dev_otp;
+      const msg = devOtp 
+        ? `Verification Code: ${devOtp}` 
+        : (targetEmail ? `OTP sent to ${targetEmail}` : 'OTP sent successfully');
+
+      toast.show(msg, {
         type: 'success',
         placement: 'top',
+        duration: devOtp ? 8000 : 4000,
       });
-      
+
       navigation.navigate('OTPVerification', {
-        mobile: formData.mobile,
+        email: targetEmail,
+        mobile: targetMobile,
         purpose: 'registration',
         nextScreen: 'Main',
         userData: formData,
+        devOtp: devOtp,
       });
     } catch (err: any) {
       console.error('OTP request failed:', err);
-      
-      // Handle specific user exists error
-      if (err?.response?.status === 400 && err?.response?.data?.detail?.includes('already exists')) {
-        toast.show('User already exists. Please login instead.', {
+      const errorMsg = typeof err === 'string' ? err : (err?.response?.data?.detail || err?.message || 'Failed to send OTP. Please try again.');
+
+      if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('already exists')) {
+        toast.show(errorMsg, {
           type: 'warning',
           placement: 'top',
           duration: 5000,
         });
-        // Navigate to login after delay
         setTimeout(() => {
           navigation.navigate('Login');
         }, 3000);
       } else {
-        toast.show(err?.response?.data?.detail || err?.message || 'Failed to send OTP. Please try again.', {
+        toast.show(errorMsg, {
           type: 'danger',
           placement: 'top',
         });
@@ -352,8 +365,8 @@ export const RegisterScreen: React.FC = () => {
 
                 {step === 2 && (
                   <>
-            <View style={styles.dropdownContainer}>
-              <TouchableOpacity onPress={() => setShowStateMenu(!showStateMenu)} activeOpacity={0.7}>
+            <View style={[styles.dropdownContainer, { zIndex: showStateMenu ? 3000 : 1000, elevation: showStateMenu ? 3000 : 1000 }]}>
+              <TouchableOpacity onPress={() => { setShowStateMenu(!showStateMenu); setShowDistrictMenu(false); }} activeOpacity={0.7}>
                 <TextInput
                   label="State *"
                   value={formData.state}
@@ -369,12 +382,12 @@ export const RegisterScreen: React.FC = () => {
                 />
               </TouchableOpacity>
               {showStateMenu && (
-                <View style={styles.customDropdown}>
+                <View style={[styles.customDropdown, { backgroundColor: colors.surface }]}>
                   <ScrollView style={styles.dropdownScrollContent} nestedScrollEnabled={true}>
                     {INDIAN_STATES.map((state) => (
                       <TouchableOpacity
                         key={state}
-                        style={styles.dropdownItem}
+                        style={[styles.dropdownItem, { backgroundColor: colors.surface }]}
                         onPress={() => {
                           handleStateSelect(state);
                           setShowStateMenu(false);
@@ -388,9 +401,9 @@ export const RegisterScreen: React.FC = () => {
               )}
             </View>
 
-            <View style={styles.dropdownContainer}>
+            <View style={[styles.dropdownContainer, { zIndex: showDistrictMenu ? 2000 : 900, elevation: showDistrictMenu ? 2000 : 900 }]}>
               <TouchableOpacity 
-                onPress={() => formData.state && setShowDistrictMenu(!showDistrictMenu)} 
+                onPress={() => { if (formData.state) { setShowDistrictMenu(!showDistrictMenu); setShowStateMenu(false); } }} 
                 activeOpacity={0.7}
                 disabled={!formData.state}
               >
@@ -409,12 +422,12 @@ export const RegisterScreen: React.FC = () => {
                 />
               </TouchableOpacity>
               {showDistrictMenu && formData.state && (
-                <View style={styles.customDropdown}>
+                <View style={[styles.customDropdown, { backgroundColor: colors.surface }]}>
                   <ScrollView style={styles.dropdownScrollContent} nestedScrollEnabled={true}>
                     {availableDistricts.map((district) => (
                       <TouchableOpacity
                         key={district}
-                        style={styles.dropdownItem}
+                        style={[styles.dropdownItem, { backgroundColor: colors.surface }]}
                         onPress={() => {
                           updateForm('district', district);
                           setShowDistrictMenu(false);
@@ -681,17 +694,18 @@ const createStyles = (colors: any) => StyleSheet.create({
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: colors.cardBg,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
     maxHeight: 180,
-    elevation: 8,
-    shadowColor: colors.shadow,
+    elevation: 20,
+    shadowColor: colors.shadow || '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    zIndex: 1001,
+    zIndex: 9999,
+    marginTop: 2,
   },
   dropdownScrollContent: {
     maxHeight: 180,
@@ -700,6 +714,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
   dropdownItemText: {
     fontSize: 15,

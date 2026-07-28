@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../services/storage';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../redux/store';
 import { loadStoredAuth, setUser, logout } from '../redux/slices/authSlice';
@@ -20,7 +20,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const checkAuth = async () => {
     try {
-      const token = await AsyncStorage.getItem('accessToken');
+      const token = await storage.getItemAsync('accessToken');
       
       if (token) {
         // Validate token and get user info

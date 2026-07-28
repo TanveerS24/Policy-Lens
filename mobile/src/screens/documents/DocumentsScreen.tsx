@@ -60,8 +60,13 @@ export const DocumentsScreen: React.FC = () => {
 
       Alert.alert('Success', 'Document uploaded successfully. AI extraction in progress.');
       dispatch(fetchDocuments());
-    } catch (error) {
-      Alert.alert('Error', 'Failed to upload document');
+    } catch (error: any) {
+      const msg = typeof error === 'string' ? error : (error?.message || 'Failed to upload document');
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Upload Error', msg);
+      }
     }
   };
 
@@ -116,12 +121,13 @@ export const DocumentsScreen: React.FC = () => {
         Alert.alert('Re-analyzing', `AI re-analysis & summarization started for "${doc.filename}".`);
       }
       dispatch(fetchDocuments());
-    } catch (err) {
+    } catch (err: any) {
       setIsReanalyzing(false);
+      const msg = typeof err === 'string' ? err : (err?.message || 'Failed to start AI re-analysis.');
       if (Platform.OS === 'web') {
-        window.alert('Failed to start AI re-analysis.');
+        window.alert(msg);
       } else {
-        Alert.alert('Error', 'Failed to start AI re-analysis.');
+        Alert.alert('AI Error', msg);
       }
     }
   };

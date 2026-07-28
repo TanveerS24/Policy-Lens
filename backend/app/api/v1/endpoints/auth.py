@@ -29,12 +29,14 @@ security = HTTPBearer()
 
 # Schemas
 class RequestOTPRequest(BaseModel):
-    mobile: str = Field(..., pattern=r'^[6-9]\d{9}$')
+    email: Optional[str] = None
+    mobile: Optional[str] = None
     purpose: str = Field(default="login")  # registration, login, password_reset
 
 
 class VerifyOTPRequest(BaseModel):
-    mobile: str
+    email: Optional[str] = None
+    mobile: Optional[str] = None
     otp: str = Field(..., min_length=6, max_length=6)
 
 
@@ -84,21 +86,34 @@ async def request_otp(
     db: Session = Depends(get_db),
     x_forwarded_for: Optional[str] = Header(None)
 ):
-    """Request OTP for mobile verification."""
+    """Request OTP for email (primary) or mobile (secondary) verification."""
+    email = request.email.strip() if request.email and request.email.strip() else None
+    mobile = request.mobile.strip() if request.mobile and request.mobile.strip() else None
+    target = email or mobile
+
+    if not target:
+        raise HTTPException(status_code=400, detail="Either email or mobile number must be provided")
+
     # For registration, check if user exists to avoid unnecessary OTP generation
     if request.purpose == 'registration':
-        existing = db.query(User).filter(
-            User.mobile == request.mobile
-        ).first()
-        if existing:
-            logger.warning("user_already_exists_before_otp", mobile=request.mobile)
-            raise HTTPException(
-                status_code=400,
-                detail="User already exists with this mobile. Please login or use different credentials."
-            )
+        from sqlalchemy import or_
+        filters = []
+        if email:
+            filters.append(User.email == email)
+        if mobile:
+            filters.append(User.mobile == mobile)
+
+        if filters:
+            existing = db.query(User).filter(or_(*filters)).first()
+            if existing:
+                logger.warning("user_already_exists_before_otp", target=target)
+                raise HTTPException(
+                    status_code=400,
+                    detail="User already exists with this email or mobile. Please login or use different credentials."
+                )
 
     # Rate limiting check
-    recent_count = otp_service.count_recent_requests(db, request.mobile)
+    recent_count = otp_service.count_recent_requests(db, target)
     if recent_count >= settings.OTP_MAX_REQUESTS_PER_HOUR:
         raise HTTPException(
             status_code=429,
@@ -108,12 +123,13 @@ async def request_otp(
     # Generate and send OTP
     otp_code = otp_service.generate_otp()
 
-    logger.info("otp_generated", mobile=request.mobile, purpose=request.purpose)
+    logger.info("otp_generated", target=target, purpose=request.purpose)
 
     # Save OTP to database
     try:
         otp_record = OTP(
-            mobile=request.mobile,
+            email=email,
+            mobile=mobile,
             otp_code=otp_code,
             purpose=request.purpose,
             expires_at=datetime.now(timezone.utc) + timedelta(minutes=settings.OTP_EXPIRE_MINUTES),
@@ -123,43 +139,65 @@ async def request_otp(
         db.add(otp_record)
         db.commit()
         db.refresh(otp_record)
-
     except Exception as e:
-        logger.error("otp_save_failed", error=str(e), mobile=request.mobile)
+        logger.error("otp_save_failed", error=str(e), target=target)
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to save OTP")
 
-    # TODO: Send actual SMS via provider
+    # Dispatch OTP via Email or SMS
+    if email:
+        otp_service.send_email_otp(email, otp_code)
+    elif mobile:
+        otp_service.send_sms(mobile, f"Your Policy-Lens OTP is {otp_code}")
+
+    # Include dev_otp for local development/testing when DEBUG is enabled or SMTP is not set
+    include_dev_otp = settings.DEBUG or not bool(settings.SMTP_HOST)
+
     return {
-        "message": "OTP sent successfully",
+        "message": f"OTP sent successfully to {'email' if email else 'mobile'}",
         "expires_in_minutes": settings.OTP_EXPIRE_MINUTES,
-        "dev_otp": otp_code if settings.DEBUG else None
+        "dev_otp": otp_code if include_dev_otp else None
     }
 
 
 @router.post("/verify-otp")
 async def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
     """Verify OTP code."""
-    is_valid = otp_service.verify_otp(db, request.mobile, request.otp)
+    email = request.email.strip() if request.email and request.email.strip() else None
+    mobile = request.mobile.strip() if request.mobile and request.mobile.strip() else None
+    target = email or mobile
+
+    if not target:
+        raise HTTPException(status_code=400, detail="Either email or mobile number must be provided")
+
+    is_valid = otp_service.verify_otp(db, target, request.otp)
+    if not is_valid and email:
+        is_valid = otp_service.verify_otp(db, email, request.otp)
+    if not is_valid and mobile:
+        is_valid = otp_service.verify_otp(db, mobile, request.otp)
 
     if not is_valid:
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
-    return {"verified": True, "mobile": request.mobile}
+    return {"verified": True, "target": target}
 
 
 @router.post("/register", response_model=TokenResponse)
 async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     """Register a new patient."""
-    logger.info("register_request_start", mobile=request.mobile, name=request.name)
+    logger.info("register_request_start", mobile=request.mobile, email=request.email, name=request.name)
 
-    # Verify OTP first
-    is_valid = otp_service.verify_otp(db, request.mobile, request.otp)
+    # Verify OTP first (by email if provided, otherwise mobile)
+    target = request.email or request.mobile
+    is_valid = otp_service.verify_otp(db, target, request.otp)
+    if not is_valid and request.mobile:
+        is_valid = otp_service.verify_otp(db, request.mobile, request.otp)
+
     if not is_valid:
-        logger.error("otp_verification_failed", mobile=request.mobile)
+        logger.error("otp_verification_failed", target=target)
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
-    logger.info("otp_verified_successfully", mobile=request.mobile)
+    logger.info("otp_verified_successfully", target=target)
 
     # Check if user exists
     existing = db.query(User).filter(
@@ -200,6 +238,7 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
             pin_code=request.pin_code,
             hashed_password=hashed_password,
             is_verified=True,
+            last_seen=datetime.now(timezone.utc),
         )
 
         db.add(user)
@@ -256,9 +295,10 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
         db.commit()
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # Reset failed attempts
+    # Reset failed attempts and update last seen
     user.failed_login_attempts = 0
     user.locked_until = None
+    user.last_seen = datetime.now(timezone.utc)
     db.commit()
 
     # Generate tokens

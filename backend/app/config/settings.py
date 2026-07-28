@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     OTP_MAX_ATTEMPTS: int = Field(default=3)
     OTP_MAX_REQUESTS_PER_HOUR: int = Field(default=5)
 
+    # SMTP Email
+    SMTP_HOST: str = Field(default="")
+    SMTP_PORT: int = Field(default=587)
+    SMTP_USER: str = Field(default="")
+    SMTP_PASSWORD: str = Field(default="")
+    EMAILS_FROM_EMAIL: str = Field(default="noreply@dentalschemes.in")
+    EMAILS_FROM_NAME: str = Field(default="Policy-Lens Dental Schemes")
+
     # Security
     MAX_LOGIN_ATTEMPTS: int = Field(default=5)
     LOCKOUT_DURATION_MINUTES: int = Field(default=30)

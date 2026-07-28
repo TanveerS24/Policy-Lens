@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.security import HTTPBearer
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db, SessionLocal
@@ -34,17 +34,32 @@ class DocumentUploadResponse(BaseModel):
 class AISummaryResponse(BaseModel):
     id: int
     document_id: int
-    coverage_summary: Optional[str]
-    exclusions: Optional[str]
-    waiting_period: Optional[str]
-    claims_process: Optional[str]
-    renewal_conditions: Optional[str]
-    eligibility_criteria: Optional[str]
+    coverage_summary: Optional[str] = None
+    exclusions: Optional[str] = None
+    waiting_period: Optional[str] = None
+    claims_process: Optional[str] = None
+    renewal_conditions: Optional[str] = None
+    eligibility_criteria: Optional[str] = None
     coverage_details: dict
     exclusions_list: list
-    processing_time_seconds: Optional[int]
-    confidence_score: Optional[int]
+    processing_time_seconds: Optional[int] = None
+    confidence_score: Optional[int] = None
     created_at: str
+
+    @field_validator(
+        "coverage_summary",
+        "exclusions",
+        "waiting_period",
+        "claims_process",
+        "renewal_conditions",
+        "eligibility_criteria",
+        mode="before"
+    )
+    @classmethod
+    def coerce_string_fields(cls, v):
+        if v is None:
+            return None
+        return str(v)
 
 
 # Helper functions
@@ -131,6 +146,9 @@ def process_document_sync(document_id: int, file_path: str):
 
         eligibility = details.get("eligibility_criteria") or "- Age requirement: None / Open to all\n- Income criteria: No income restriction\n- Target category: Open to all citizens\n- Required documents: Standard Identity Proof"
 
+        # 3. Compare uploaded document with existing active schemes using Relevance Score (No brute force)
+        scheme_comparison = pdf_service.compare_document_with_schemes(db, text, details)
+
         # Remove previous AI summary if re-analyzing
         if doc.ai_summary:
             db.delete(doc.ai_summary)
@@ -147,7 +165,8 @@ def process_document_sync(document_id: int, file_path: str):
                 "amount": str(details.get("coverage_amount", "Standard Coverage")),
                 "type": str(details.get("type", "national")),
                 "has_eligibility_restrictions": details.get("has_eligibility_restrictions", True),
-                "is_non_dental": False
+                "is_non_dental": False,
+                "scheme_comparison": scheme_comparison
             },
             exclusions_list=["Cosmetic dental procedures"],
             confidence_score=90,
@@ -180,6 +199,12 @@ async def upload_document(
     db: Session = Depends(get_db)
 ):
     """Upload a policy document."""
+    if not pdf_service.is_ai_healthy():
+        raise HTTPException(
+            status_code=503,
+            detail="AI Service is currently offline or unreachable. Please ensure Ollama is running."
+        )
+
     contents = await file.read()
     max_size = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
     
@@ -283,12 +308,12 @@ async def get_document(
     
     if document.ai_summary:
         result["ai_summary"] = {
-            "coverage_summary": document.ai_summary.coverage_summary,
-            "exclusions": document.ai_summary.exclusions,
-            "waiting_period": document.ai_summary.waiting_period,
-            "claims_process": document.ai_summary.claims_process,
-            "renewal_conditions": document.ai_summary.renewal_conditions,
-            "eligibility_criteria": document.ai_summary.eligibility_criteria,
+            "coverage_summary": str(document.ai_summary.coverage_summary) if document.ai_summary.coverage_summary is not None else None,
+            "exclusions": str(document.ai_summary.exclusions) if document.ai_summary.exclusions is not None else None,
+            "waiting_period": str(document.ai_summary.waiting_period) if document.ai_summary.waiting_period is not None else None,
+            "claims_process": str(document.ai_summary.claims_process) if document.ai_summary.claims_process is not None else None,
+            "renewal_conditions": str(document.ai_summary.renewal_conditions) if document.ai_summary.renewal_conditions is not None else None,
+            "eligibility_criteria": str(document.ai_summary.eligibility_criteria) if document.ai_summary.eligibility_criteria is not None else None,
             "coverage_details": document.ai_summary.coverage_details,
             "exclusions_list": document.ai_summary.exclusions_list,
             "confidence_score": document.ai_summary.confidence_score,
@@ -320,17 +345,55 @@ async def get_document_summary(
     return {
         "id": summary.id,
         "document_id": summary.document_id,
-        "coverage_summary": summary.coverage_summary,
-        "exclusions": summary.exclusions,
-        "waiting_period": summary.waiting_period,
-        "claims_process": summary.claims_process,
-        "renewal_conditions": summary.renewal_conditions,
-        "eligibility_criteria": summary.eligibility_criteria,
+        "coverage_summary": str(summary.coverage_summary) if summary.coverage_summary is not None else None,
+        "exclusions": str(summary.exclusions) if summary.exclusions is not None else None,
+        "waiting_period": str(summary.waiting_period) if summary.waiting_period is not None else None,
+        "claims_process": str(summary.claims_process) if summary.claims_process is not None else None,
+        "renewal_conditions": str(summary.renewal_conditions) if summary.renewal_conditions is not None else None,
+        "eligibility_criteria": str(summary.eligibility_criteria) if summary.eligibility_criteria is not None else None,
         "coverage_details": summary.coverage_details or {},
         "exclusions_list": summary.exclusions_list or [],
         "processing_time_seconds": summary.processing_time_seconds,
         "confidence_score": summary.confidence_score,
         "created_at": summary.created_at.isoformat() if summary.created_at else None,
+    }
+
+
+@router.get("/{document_id}/matching-schemes")
+async def get_matching_schemes(
+    document_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get relevance-scored matching schemes for an uploaded document."""
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == user.id
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not document.ai_summary:
+        raise HTTPException(status_code=404, detail="Document processing not completed yet")
+
+    comparison = (document.ai_summary.coverage_details or {}).get("scheme_comparison")
+
+    if not comparison and os.path.exists(document.storage_path):
+        try:
+            with open(document.storage_path, "rb") as f:
+                content = f.read()
+            extraction = pdf_service.extract_text_from_pdf(content)
+            if extraction.get("text"):
+                details = pdf_service.extract_scheme_details(extraction["text"])
+                comparison = pdf_service.compare_document_with_schemes(db, extraction["text"], details)
+        except Exception as e:
+            logger.warning("on_demand_scheme_comparison_failed", error=str(e))
+
+    return comparison or {
+        "matched_schemes": [],
+        "comparison_summary": "No scheme comparison available.",
+        "total_schemes_evaluated": 0
     }
 
 
@@ -425,6 +488,12 @@ async def reanalyze_document(
     db: Session = Depends(get_db)
 ):
     """Re-analyze and summarize a document with AI."""
+    if not pdf_service.is_ai_healthy():
+        raise HTTPException(
+            status_code=503,
+            detail="AI Service is currently offline or unreachable. Please ensure Ollama is running."
+        )
+
     document = db.query(Document).filter(
         Document.id == document_id,
         Document.user_id == user.id
